@@ -7,13 +7,12 @@ import dfk.item.DFVariable
 import dfk.item.VarItem
 import dfk.template.DFTemplate
 import parser.TreeNode
-import kotlin.random.Random
-import kotlin.random.nextInt
 
 val astConverters = mapOf(
     "number" to NumberConverter, "word" to WordConverter, "string" to StringConverter, "styled" to StyledTextConverter,
     "assign" to AssignmentConverter, "acc" to AccessorConverter,
-    "add" to AdditionConverter, "sub" to SubtractionConverter, "mul" to MultiplicationConverter, "div" to DivisionConverter, "pow" to ExponentConverter
+    "add" to AdditionConverter, "sub" to SubtractionConverter, "mul" to MultiplicationConverter, "div" to DivisionConverter, "pow" to ExponentConverter,
+    "inc" to IncrementConverter, "dec" to DecrementConverter
 )
 
 interface AstConverter {
@@ -96,6 +95,31 @@ object ExponentConverter : AstConverter {
             DFCodeType.SET_VARIABLE,
             "Exponent"
         ).setContent(variable, left, right))
+        return variable
+    }
+}
+
+object IncrementConverter : AstConverter {
+    override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+        val variable = TreeConverter.convertTree(tree.value!! as TreeNode, template, objects) as VarItem
+        template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "+=")
+            .setContent(
+                variable
+            )
+        )
+        return variable
+    }
+}
+
+object DecrementConverter : AstConverter {
+    override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+        val variable = VarItem.tempVar()
+        template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "-=")
+            .setContent(
+                variable,
+                TreeConverter.convertTree(tree.value!! as TreeNode, template, objects) as VarItem
+            )
+        )
         return variable
     }
 }

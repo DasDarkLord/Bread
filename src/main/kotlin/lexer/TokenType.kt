@@ -17,6 +17,8 @@ enum class TokenType {
 
     // Operators
     ASSIGNMENT("assign", "="),
+    INCREMENT_TOKEN("inc", "++"),
+    DECREMENT_TOKEN("dec", "--"),
     ADD("add", "+"),
     SUB("sub", "-"),
     MUL("mul", "*"),

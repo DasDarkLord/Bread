@@ -86,9 +86,9 @@ class NodeParser(val tokens: MutableList<Token>) {
         val wordToken = parseToken()
         if (index < tokens.size && tokens[index].type == TokenType.OPEN_PAREN) {
             index--
-            return parseFunction()
+            return parseIncDec(parseFunction())
         }
-        return wordToken
+        return parseIncDec(wordToken)
     }
 
     fun parseScope(): TreeNode {
@@ -103,6 +103,19 @@ class NodeParser(val tokens: MutableList<Token>) {
         val wordToken = parseWord()
         wordToken.arguments.add(TreeNode("scope", value = type))
         return wordToken
+    }
+
+    fun parseIncDec(tree: TreeNode): TreeNode {
+        if (index >= tokens.size) return tree
+        if (tokens[index].type == TokenType.INCREMENT_TOKEN) {
+            index++
+            return parseIncDec(TreeNode("inc", value = tree))
+        }
+        else if (tokens[index].type == TokenType.DECREMENT_TOKEN) {
+            index++
+            return parseIncDec(TreeNode("dec", value = tree))
+        }
+        else return tree
     }
 
     fun parseFunction(): TreeNode {
