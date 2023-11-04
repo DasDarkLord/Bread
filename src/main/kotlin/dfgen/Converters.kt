@@ -40,8 +40,19 @@ object StyledTextConverter : AstConverter {
 
 object AdditionConverter : AstConverter {
     override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
-        val left = TreeConverter.convertTree(tree.left!!, template, objects) as VarItem
-        val right = TreeConverter.convertTree(tree.right!!, template, objects) as VarItem
+        var left = TreeConverter.convertTree(tree.left!!, template, objects) as VarItem
+        var right = TreeConverter.convertTree(tree.right!!, template, objects) as VarItem
+        val rTypes = listOf(DFVarType.STYLED_TEXT, DFVarType.STRING, DFVarType.VARIABLE, DFVarType.NUMBER)
+        if (left.type !in rTypes) {
+            val tempVar = VarItem.tempVar()
+            template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "=").setContent(tempVar, left))
+            left = tempVar
+        }
+        if (right.type !in rTypes) {
+            val tempVar = VarItem.tempVar()
+            template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "=").setContent(tempVar, right))
+            right = tempVar
+        }
         if (left.type == DFVarType.STRING || right.type == DFVarType.STRING) {
             return VarItem.str("${left}${right}")
         }
@@ -80,7 +91,7 @@ object ExponentConverter : AstConverter {
     override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
         val left = TreeConverter.convertTree(tree.left!!, template, objects) as VarItem
         val right = TreeConverter.convertTree(tree.right!!, template, objects) as VarItem
-        val variable = VarItem.variable("${Random.nextInt(Int.MIN_VALUE..Int.MAX_VALUE)}", DFVariable.VariableScope.LINE)
+        val variable = VarItem.tempVar()
         template.addCodeBlock(DFCodeBlock(
             DFCodeType.SET_VARIABLE,
             "Exponent"

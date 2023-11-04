@@ -1,5 +1,8 @@
 package dfk.item
 
+import kotlin.random.Random
+import kotlin.random.nextInt
+
 open class VarItem {
     val type: DFVarType
     val value: Any
@@ -17,6 +20,7 @@ open class VarItem {
         fun num(value: Number): VarItem = num(value.toString())
         fun num(expression: String): VarItem = VarItem(DFVarType.NUMBER, expression)
         fun variable(varName: String, scope: DFVariable.VariableScope = DFVariable.VariableScope.LINE): VarItem = DFVariable(varName, scope)
+        fun tempVar(): VarItem = variable("Temporary_${Random.nextInt(Int.MIN_VALUE..Int.MAX_VALUE)}", DFVariable.VariableScope.LINE)
         fun str(value: String): VarItem = VarItem(DFVarType.STRING, value)
         fun styled(value: String): VarItem = VarItem(DFVarType.STYLED_TEXT, value)
         fun gameValue(name: String, target: String): VarItem = VarItem(DFVarType.GAME_VALUE, mapOf("type" to name, "target" to target))

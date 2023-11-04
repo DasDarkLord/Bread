@@ -8,22 +8,9 @@ class NodeParser(val tokens: MutableList<Token>) {
     var index = 0
 
     fun parseAssignment(): TreeNode {
-        var left = parseAccessor()
-
-        while (index < tokens.size && (tokens[index].type == TokenType.ASSIGNMENT)) {
-            val operator = tokens[index].type.id
-            index++
-            val right = parseAccessor()
-            left = TreeNode(operator, left, right)
-        }
-
-        return left
-    }
-
-    fun parseAccessor(): TreeNode {
         var left = parseExpression()
 
-        while (index < tokens.size && (tokens[index].type == TokenType.ACCESSOR)) {
+        while (index < tokens.size && (tokens[index].type == TokenType.ASSIGNMENT)) {
             val operator = tokens[index].type.id
             index++
             val right = parseExpression()
@@ -60,9 +47,22 @@ class NodeParser(val tokens: MutableList<Token>) {
     }
 
     fun parseExponent(): TreeNode {
-        var left = parseFactor()
+        var left = parseAccessor()
 
         while (index < tokens.size && (tokens[index].type == TokenType.POW)) {
+            val operator = tokens[index].type.id
+            index++
+            val right = parseAccessor()
+            left = TreeNode(operator, left, right)
+        }
+
+        return left
+    }
+
+    fun parseAccessor(): TreeNode {
+        var left = parseFactor()
+
+        while (index < tokens.size && (tokens[index].type == TokenType.ACCESSOR)) {
             val operator = tokens[index].type.id
             index++
             val right = parseFactor()
