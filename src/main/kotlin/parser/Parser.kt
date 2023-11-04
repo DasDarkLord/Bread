@@ -1,5 +1,7 @@
 package parser
 
+import dfgen.WordConverter
+import dfk.item.DFVariable
 import lexer.Token
 import lexer.TokenType
 
@@ -24,6 +26,21 @@ class Parser(val input: MutableList<Token>) {
 
     fun parseAll(): List<Ast.Event> {
         val output = mutableListOf<Ast.Event>()
+        while (hasNext()) {
+            if (peek().type == TokenType.LOCAL || peek().type == TokenType.GAME || peek().type == TokenType.SAVED) {
+                val type = next()
+                val word = next()
+                if (word.type != TokenType.WORD) throw IllegalStateException("Expected word but got ${word.type}")
+                val scope = when (type.type) {
+                    TokenType.LOCAL -> DFVariable.VariableScope.LOCAL
+                    TokenType.GAME -> DFVariable.VariableScope.GAME
+                    TokenType.SAVED -> DFVariable.VariableScope.SAVED
+                    else -> throw UnsupportedOperationException("Expected local, game or save but got ${type.type}")
+                }
+                WordConverter.wordScopes[word.value as String] = scope
+            } else if (peek().type == TokenType.NEWLINE) next()
+            else break
+        }
         while (hasNext()) output.add(parseEvent())
         return output
     }

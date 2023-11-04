@@ -10,7 +10,11 @@ fun convertAstToDF(events: List<Ast.Event>): List<DFTemplate> {
     val eventNames = mapOf(
         "join" to "Join",
         "leave" to "Leave",
-        "sneak" to "Sneak"
+        "sneak" to "Sneak",
+        "leftClick" to "LeftClick",
+        "lc" to "LeftClick",
+        "rightClick" to "RightClick",
+        "rc" to "RightClick"
     )
 
     val templates = mutableListOf<DFTemplate>()

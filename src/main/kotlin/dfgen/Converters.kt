@@ -7,12 +7,14 @@ import dfk.item.DFVariable
 import dfk.item.VarItem
 import dfk.template.DFTemplate
 import parser.TreeNode
+import java.util.StringJoiner
 
 val astConverters = mapOf(
     "number" to NumberConverter, "word" to WordConverter, "string" to StringConverter, "styled" to StyledTextConverter,
     "assign" to AssignmentConverter, "acc" to AccessorConverter,
     "add" to AdditionConverter, "sub" to SubtractionConverter, "mul" to MultiplicationConverter, "div" to DivisionConverter, "pow" to ExponentConverter,
-    "inc" to IncrementConverter, "dec" to DecrementConverter
+    "inc" to IncrementConverter, "dec" to DecrementConverter,
+    "call" to CallConverter
 )
 
 interface AstConverter {
@@ -52,11 +54,11 @@ object AdditionConverter : AstConverter {
             template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "=").setContent(tempVar, right))
             right = tempVar
         }
-        if (left.type == DFVarType.STRING || right.type == DFVarType.STRING) {
-            return VarItem.str("${left}${right}")
-        }
         if (left.type == DFVarType.STYLED_TEXT || right.type == DFVarType.STYLED_TEXT) {
             return VarItem.styled("${left}${right}")
+        }
+        if (left.type == DFVarType.STRING || right.type == DFVarType.STRING) {
+            return VarItem.str("${left}${right}")
         }
         return VarItem.num("%math(${left}+${right})")
     }
@@ -162,4 +164,11 @@ object AccessorConverter : AstConverter {
         }
     }
 
+}
+
+object CallConverter : AstConverter {
+    override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): Any? {
+        if (DefaultObject.accessFunc(tree.value!! as String) != null) return DefaultObject.accessFunc(tree.value as String)!!.convert(tree, template, objects)
+        throw UnsupportedOperationException("Unsupported function ${tree.value as String}")
+    }
 }

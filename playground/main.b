@@ -1,9 +1,11 @@
+game `%default clicks`
+
 event join {
-    game %defaultSneaks = 0
-    player.send("Sneak to increase ur counter xdd")
+    `%default clicks` = 0
+    player.send($"Left-click <gray>to get more clicks")
 }
 
-event sneak {
-    %defaultSneaks++
-    player.send("You now have " + %defaultSneaks + " sneaks")
+event lc {
+    `%default clicks`++
+    player.send($"<gray>You now have <white>" + `%default clicks` + " <gray>clicks.")
 }
