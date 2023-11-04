@@ -1,0 +1,38 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '1.9.0'
+    id 'java'
+}
+
+group = 'net.dasdarklord'
+version = '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+processResources {
+    filteringCharset = "UTF-8"
+}
+
+tasks.withType(JavaCompile).configureEach {
+    it.options.encoding = "UTF-8"
+}
+
+dependencies {
+    testImplementation 'org.jetbrains.kotlin:kotlin-test'
+
+    implementation 'com.google.code.gson:gson:2.8.9'
+    implementation 'org.java-websocket:Java-WebSocket:1.5.2'
+}
+
+test {
+    useJUnitPlatform()
+}
+
+sourceSets {
+    main.java.srcDirs += "src/main/kotlin"
+}
+
+kotlin {
+    jvmToolchain(8)
+}
