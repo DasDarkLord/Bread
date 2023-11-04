@@ -63,7 +63,7 @@ class Lexer(val source: String) {
                         str)
                     )
                 }
-                source[position].isLetter() || source[position] == '`' -> {
+                source[position].isLetter() || source[position] == '`' || source[position].toString() in wordAllowedChars -> {
                     val backticks = source[position] == '`'
                     if (backticks) position++
 
