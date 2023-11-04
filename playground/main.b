@@ -1,4 +1,4 @@
 event join {
-    player.send(player.name)
-    player.send(player.string_name)
+    `hello world` = "Hello" + " world"
+    player.send(`hello world`)
 }

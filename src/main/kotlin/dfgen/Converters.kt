@@ -2,6 +2,7 @@ package dfgen
 
 import dfk.codeblock.DFCodeBlock
 import dfk.codeblock.DFCodeType
+import dfk.item.DFVarType
 import dfk.item.DFVariable
 import dfk.item.VarItem
 import dfk.template.DFTemplate
@@ -41,6 +42,12 @@ object AdditionConverter : AstConverter {
     override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
         val left = TreeConverter.convertTree(tree.left!!, template, objects) as VarItem
         val right = TreeConverter.convertTree(tree.right!!, template, objects) as VarItem
+        if (left.type == DFVarType.STRING || right.type == DFVarType.STRING) {
+            return VarItem.str("${left}${right}")
+        }
+        if (left.type == DFVarType.STYLED_TEXT || right.type == DFVarType.STYLED_TEXT) {
+            return VarItem.styled("${left}${right}")
+        }
         return VarItem.num("%math(${left}+${right})")
     }
 }
