@@ -1,5 +1,7 @@
 package parser
 
+import dfk.item.DFVarType
+
 sealed class Ast {
     class Event(val name: String, val code: Block, val eventType: EventType) : Ast() {
         override fun toString(): String {
@@ -21,5 +23,13 @@ sealed class Ast {
 sealed class EventType {
     data object Event : EventType() {
         override fun toString(): String = "Event"
+    }
+
+    data class Function(val parameters: MutableMap<String, DFVarType>) : EventType() {
+        override fun toString(): String = "Function"
+    }
+
+    data object Process : EventType() {
+        override fun toString(): String = "Process"
     }
 }

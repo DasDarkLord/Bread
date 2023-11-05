@@ -2,6 +2,7 @@ package dfgen
 
 import dfk.codeblock.DFCodeBlock
 import dfk.codeblock.DFCodeType
+import dfk.item.VarItem
 import dfk.template.DFTemplate
 import parser.Ast
 import parser.EventType
@@ -11,9 +12,9 @@ fun convertAstToDF(events: List<Ast.Event>): List<DFTemplate> {
         "join" to "Join",
         "leave" to "Leave",
         "sneak" to "Sneak",
-        "leftClick" to "LeftClick",
+        "leftclick" to "LeftClick",
         "lc" to "LeftClick",
-        "rightClick" to "RightClick",
+        "rightclick" to "RightClick",
         "rc" to "RightClick"
     )
 
@@ -21,12 +22,23 @@ fun convertAstToDF(events: List<Ast.Event>): List<DFTemplate> {
     for (event in events) {
         val template = DFTemplate()
 
-        val type: DFCodeType = when (event.eventType) {
-            EventType.Event -> DFCodeType.PLAYER_EVENT
-            else -> throw IllegalStateException("Unsupported event type ${event.eventType}")
-        }
+        val type: DFCodeType
+        if (event.eventType == EventType.Event) type = DFCodeType.PLAYER_EVENT
+        else if (event.eventType is EventType.Function) type = DFCodeType.FUNCTION
+        else if (event.eventType == EventType.Process) type = DFCodeType.PROCESS
+        else throw UnsupportedOperationException("Unsupported event type ${event.eventType}")
+
         val code = event.code
-        template.addCodeBlock(DFCodeBlock(type, eventNames[code.eventName] ?: "?"))
+        val name = if (event.eventType is EventType.Function || event.eventType is EventType.Process) code.eventName else eventNames[code.eventName] ?: code.eventName
+        var cb = DFCodeBlock(type, name)
+        if (event.eventType is EventType.Function) {
+            var index = 0
+            for (entry in event.eventType.parameters) {
+                cb = cb.setContent(index, VarItem.parameter(entry.key, entry.value))
+                index++
+            }
+        }
+        template.addCodeBlock(cb)
 
         val defaultObjects = mutableMapOf<String, DFLObject>(
             "player" to DFLPlayer("Default"),

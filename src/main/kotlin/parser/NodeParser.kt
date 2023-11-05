@@ -8,9 +8,22 @@ class NodeParser(val tokens: MutableList<Token>) {
     var index = 0
 
     fun parseAssignment(): TreeNode {
-        var left = parseExpression()
+        var left = parseEquals()
 
         while (index < tokens.size && (tokens[index].type == TokenType.ASSIGNMENT)) {
+            val operator = tokens[index].type.id
+            index++
+            val right = parseEquals()
+            left = TreeNode(operator, left, right)
+        }
+
+        return left
+    }
+
+    fun parseEquals(): TreeNode {
+        var left = parseExpression()
+
+        while (index < tokens.size && (tokens[index].type == TokenType.EQUALS || tokens[index].type == TokenType.NOT_EQUALS || tokens[index].type == TokenType.GREATER_EQUALS || tokens[index].type == TokenType.LESS_EQUALS || tokens[index].type == TokenType.GREATER || tokens[index].type == TokenType.LESS)) {
             val operator = tokens[index].type.id
             index++
             val right = parseExpression()
@@ -36,7 +49,7 @@ class NodeParser(val tokens: MutableList<Token>) {
     fun parseTerm(): TreeNode {
         var left = parseExponent()
 
-        while (index < tokens.size && (tokens[index].type == TokenType.MUL || tokens[index].type == TokenType.DIV)) {
+        while (index < tokens.size && (tokens[index].type == TokenType.MUL || tokens[index].type == TokenType.DIV || tokens[index].type == TokenType.MOD || tokens[index].type == TokenType.REMAINDER)) {
             val operator = tokens[index].type.id
             index++
             val right = parseExponent()
@@ -47,16 +60,14 @@ class NodeParser(val tokens: MutableList<Token>) {
     }
 
     fun parseExponent(): TreeNode {
-        var left = parseAccessor()
+        val left = parseAccessor()
 
-        while (index < tokens.size && (tokens[index].type == TokenType.POW)) {
+        return if (index < tokens.size && (tokens[index].type == TokenType.POW)) {
             val operator = tokens[index].type.id
             index++
-            val right = parseAccessor()
-            left = TreeNode(operator, left, right)
-        }
-
-        return left
+            val right = parseExponent()
+            TreeNode(operator, left, right)
+        } else left
     }
 
     fun parseAccessor(): TreeNode {
@@ -74,12 +85,15 @@ class NodeParser(val tokens: MutableList<Token>) {
 
     fun parseFactor(): TreeNode {
         if (tokens[index].type == TokenType.NUMBER) return parseToken()
-        if (tokens[index].type == TokenType.STRING) return parseToken()
-        if (tokens[index].type == TokenType.STYLED_TEXT) return parseToken()
+        else if (tokens[index].type == TokenType.STRING) return parseToken()
+        else if (tokens[index].type == TokenType.STYLED_TEXT) return parseToken()
+        else if (tokens[index].type == TokenType.TRUE || tokens[index].type == TokenType.FALSE) return parseTokens()
         else if (tokens[index].type == TokenType.WORD) return parseWord()
-        else if (tokens[index].type == TokenType.LOCAL || tokens[index].type == TokenType.GAME || tokens[index].type == TokenType.SAVED) return parseScope()
+        else if (tokens[index].type == TokenType.LOCAL || tokens[index].type == TokenType.GAME || tokens[index].type == TokenType.SAVED) return parseVariableScope()
+        else if (tokens[index].type == TokenType.START) return parseStart()
+        else if (tokens[index].type == TokenType.IF) return parseIf()
 
-        throw IllegalStateException("Unexpected token: ${tokens[index].type}")
+        throw IllegalStateException("Unexpected token: ${tokens[index].type} [$index : ${tokens}]")
     }
 
     fun parseWord(): TreeNode {
@@ -91,7 +105,110 @@ class NodeParser(val tokens: MutableList<Token>) {
         return parseIncDec(wordToken)
     }
 
-    fun parseScope(): TreeNode {
+    fun parseStart(): TreeNode {
+        index++
+
+        if (index >= tokens.size) throw IllegalStateException("Expected WORD but got nothing")
+        if (tokens[index].type != TokenType.WORD) throw IllegalStateException("Expected WORD but got ${tokens[index].type}")
+        val procName = tokens[index].value as String
+
+        index++
+
+        var localVarOption = "Don't copy"
+        var targetOption = "With current targets"
+        for (i in 1..2) {
+            if (index < tokens.size) {
+                if (tokens[index].type == TokenType.WORD) {
+                    if ((tokens[index].value as String) == "copy") {
+                        index++
+                        localVarOption = "Copy"
+                    } else if ((tokens[index].value as String) == "share") {
+                        index++
+                        localVarOption = "Share"
+                    } else if ((tokens[index].value as String) == "foreach") {
+                        index++
+                        targetOption = "For each in selection"
+                    } else if ((tokens[index].value as String) == "none") {
+                        index++
+                        targetOption = "With no targets"
+                    } else if ((tokens[index].value as String) == "selection") {
+                        index++
+                        targetOption = "With current selection"
+                    } else break
+                }
+            }
+        }
+
+        index--
+
+        return TreeNode("start_proc",
+            value = procName,
+            arguments = mutableListOf(
+                TreeNode("lvo", value = localVarOption),
+                TreeNode("to", value = targetOption),
+            )
+        )
+    }
+
+    fun parseIf(): TreeNode {
+        index++
+        val checkExpression = parseTree()
+        val ifExpression = parseBlock()
+
+        return TreeNode(
+            "cond",
+            value = checkExpression,
+            left = ifExpression
+        )
+    }
+
+    fun parseBlock(): TreeNode {
+        val t = mutableListOf<Token>()
+        var openParens = 0
+
+        while (index < tokens.size) {
+            if (tokens[index].type == TokenType.OPEN_PAREN) openParens++
+            if (tokens[index].type == TokenType.CLOSE_PAREN) openParens--
+
+            if (openParens == 0) break
+
+            t.add(tokens[index])
+            index++
+        }
+        t.add(tokens[index])
+        index++
+        println("Left tokens ${tokens.subList(index, tokens.size)}")
+
+        return TreeNode(
+            "block",
+            value = Parser(t).parseBlock("Block${bCount++}")
+        )
+    }
+
+    fun parseTree(): TreeNode {
+        val t = mutableListOf<Token>()
+        var openParens = 0
+
+        while (index < tokens.size) {
+            if (tokens[index].type == TokenType.OPEN_PAREN) openParens++
+            if (tokens[index].type == TokenType.CLOSE_PAREN) openParens--
+
+            if (openParens == 0) break
+
+            if (tokens[index].type == TokenType.OPEN_PAREN && openParens == 1) {
+                index++
+                continue
+            }
+
+            t.add(tokens[index])
+            index++
+        }
+        index++
+
+        return parseTokens(t)
+    }
+
+    fun parseVariableScope(): TreeNode {
         val token = tokens[index]
         index++
         val type = when (token.type) {
@@ -145,6 +262,8 @@ class NodeParser(val tokens: MutableList<Token>) {
         }
         if (currentTokens.isNotEmpty()) argTokens.add(currentTokens)
 
+        if (index < tokens.size && tokens[index].type == TokenType.CLOSE_PAREN) index++
+
         val treeArgs = argTokens.map { parseTokens(it) }
 
         return TreeNode(
@@ -160,10 +279,16 @@ class NodeParser(val tokens: MutableList<Token>) {
         return TreeNode(token.type.id, value = token.value)
     }
 
+    fun parseTokens(): TreeNode {
+        return parseAssignment()
+    }
+
     companion object {
         fun parseTokens(tokens: MutableList<Token>): TreeNode {
-            return NodeParser(tokens).parseAssignment()
+            return NodeParser(tokens).parseTokens()
         }
+
+        private var bCount = 0
     }
 
 }

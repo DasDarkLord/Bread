@@ -9,6 +9,11 @@ class DFCodeBlock(var type: DFCodeType, var action: String = "", var target: Str
     var bracketOpening: Boolean = false
     var bracketRepeating: Boolean = false
 
+    fun setTag(name: String, value: String): DFCodeBlock {
+        tags[name] = value
+        return this
+    }
+
     fun setContent(vararg items: VarItem): DFCodeBlock {
         return setContent(0, *items)
     }

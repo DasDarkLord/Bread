@@ -10,7 +10,7 @@ class TreeConverter {
                 if (entry.key == tree.type) return entry.value.convert(tree, template, objects)
             }
 
-            throw UnsupportedOperationException("Unsupported tree type ${tree.type}")
+            return tree
         }
     }
 }

@@ -32,7 +32,8 @@ class Lexer(val source: String) {
 
                     var str = ""
                     var isEscaped = false
-                    while (position < source.length && (source[position] != closingChar && !isEscaped)) {
+                    while (position < source.length) {
+                        if (source[position] == closingChar && !isEscaped) break
                         var letter = source[position]
                         if (isEscaped) {
                             letter = when (source[position]) {
@@ -101,12 +102,6 @@ class Lexer(val source: String) {
                     ))
                 }
                 source[position] == '\n' -> {
-                    tokens.add(
-                        Token(
-                        TokenType.NEWLINE,
-                        "\n"
-                    )
-                    )
                     position++
                 }
                 else -> {

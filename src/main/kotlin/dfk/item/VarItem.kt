@@ -24,6 +24,8 @@ open class VarItem {
         fun str(value: String): VarItem = VarItem(DFVarType.STRING, value)
         fun styled(value: String): VarItem = VarItem(DFVarType.STYLED_TEXT, value)
         fun gameValue(name: String, target: String): VarItem = VarItem(DFVarType.GAME_VALUE, mapOf("type" to name, "target" to target))
+        fun parameter(name: String, type: DFVarType): VarItem = VarItem(DFVarType.PARAMETER, mapOf("name" to name, "type" to type))
+        fun loc(x: Double, y: Double, z: Double, pitch: Float = 0f, yaw: Float = 0f): VarItem = VarItem(DFVarType.LOCATION, mapOf("x" to x, "y" to y, "z" to z, "pitch" to pitch, "yaw" to yaw))
 
         private var cTempInt = 0
         private fun nextTempInt(): Int {

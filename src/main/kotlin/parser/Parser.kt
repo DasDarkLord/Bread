@@ -1,6 +1,7 @@
 package parser
 
 import dfgen.WordConverter
+import dfk.item.DFVarType
 import dfk.item.DFVariable
 import lexer.Token
 import lexer.TokenType
@@ -38,48 +39,66 @@ class Parser(val input: MutableList<Token>) {
                     else -> throw UnsupportedOperationException("Expected local, game or save but got ${type.type}")
                 }
                 WordConverter.wordScopes[word.value as String] = scope
-            } else if (peek().type == TokenType.NEWLINE) next()
-            else break
+            } else {
+                if (peek().type != TokenType.LOCAL && peek().type != TokenType.GAME && peek().type != TokenType.SAVED) break
+            }
         }
         while (hasNext()) output.add(parseEvent())
         return output
     }
 
-    private fun parseEvent(): Ast.Event {
-        var eventToken = next()
-        while (eventToken.type == TokenType.NEWLINE) eventToken = next()
+    fun parseEvent(): Ast.Event {
+        val eventToken = next()
 
+        if (eventToken.type != TokenType.EVENT && eventToken.type != TokenType.FUNCTION && eventToken.type != TokenType.PROCESS) throw IllegalStateException("Expected one of event, function or process but got ${eventToken.type} [at $pointer (${input[pointer]}) in $input]")
         val nameToken = next()
 
-        if (eventToken.type != TokenType.EVENT) throw IllegalStateException("Expected event but got ${eventToken.type}")
         if (nameToken.type != TokenType.WORD) throw IllegalStateException("Expected word but got ${nameToken.type}")
 
-        return Ast.Event(nameToken.value as String, parseBlock(nameToken.value), EventType.Event)
+        if (eventToken.type == TokenType.FUNCTION) {
+            val paramMap = mutableMapOf<String, DFVarType>()
+            next()
+            while (hasNext() && peek().type != TokenType.CLOSE_PAREN) {
+                val paramName = next()
+                val paramType = next()
+                val varType = DFVarType.fromId(paramType.value as String)
+
+                paramMap[paramName.value as String] = varType
+            }
+            if (peek().type == TokenType.CLOSE_PAREN) next()
+
+            val block = parseBlock(nameToken.value as String)
+
+            return Ast.Event(nameToken.value, block, EventType.Function(paramMap))
+        } else if (eventToken.type == TokenType.PROCESS) return Ast.Event(nameToken.value as String, parseBlock(nameToken.value), EventType.Process)
+        else return Ast.Event(nameToken.value as String, parseBlock(nameToken.value), EventType.Event)
     }
 
-    private fun parseBlock(eventName: String): Ast.Block {
+    fun parseBlock(eventName: String): Ast.Block {
         val openParen = next()
         if (openParen.type != TokenType.OPEN_PAREN) throw IllegalStateException("Expected open paren but got ${openParen.type}")
+        next()
+
         val commands = mutableListOf<Ast.Command>()
 
-        if (peek().type == TokenType.NEWLINE) next()
-
-        while (peek().type != TokenType.CLOSE_PAREN) {
+        while (input[pointer].type != TokenType.CLOSE_PAREN) {
             val command = parseCommand()
             commands.add(command)
         }
-        val closeParen = next()
-        if (closeParen.type != TokenType.CLOSE_PAREN) throw IllegalStateException("Expected close paren but got ${closeParen.type}")
+
+        val closingParen = input[pointer]
+        if (closingParen.type != TokenType.CLOSE_PAREN) throw IllegalStateException("Expected close paren but got ${closingParen.type}")
 
         return Ast.Block(commands, eventName)
     }
 
-    private fun parseCommand(): Ast.Command {
-        val hasParens = peek().type == TokenType.OPEN_PAREN
+    fun parseCommand(): Ast.Command {
+        val hasParens = input[pointer].type == TokenType.OPEN_PAREN
         if (hasParens) next()
 
-        val commandTokens = mutableListOf<Token>()
+        val tree: TreeNode
         if (hasParens) {
+            val commandTokens = mutableListOf<Token>()
             var parenCount = 1
             while (hasNext()) {
                 val token = next()
@@ -89,17 +108,21 @@ class Parser(val input: MutableList<Token>) {
 
                 commandTokens.add(token)
             }
+            next()
+
+            println(commandTokens)
+            tree = NodeParser.parseTokens(commandTokens)
         } else {
-            while (hasNext()) {
-                val token = next()
-                if (token.type == TokenType.NEWLINE) break
-                commandTokens.add(token)
-            }
+            val parserTokens = input.subList(pointer, input.size)
+            val parser = NodeParser(parserTokens)
+            println(parserTokens)
+            tree = parser.parseTokens()
+            pointer += parser.index
+//            if (input[pointer].type == TokenType.IF) pointer--
         }
 
-        println(commandTokens)
-
-        return Ast.Command(NodeParser.parseTokens(commandTokens))
+        println(tree)
+        return Ast.Command(tree)
     }
 
 }
