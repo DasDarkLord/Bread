@@ -60,10 +60,15 @@ class Parser(val input: MutableList<Token>) {
             next()
             while (hasNext() && peek().type != TokenType.CLOSE_PAREN) {
                 val paramName = next()
-                val paramType = next()
-                val varType = DFVarType.fromId(paramType.value as String)
+                var varType = DFVarType.ANY
+                if (peek().type == TokenType.COLON) {
+                    next()
+                    varType = DFVarType.fromId(next().value as String)
+                }
 
                 paramMap[paramName.value as String] = varType
+
+                if (peek().type == TokenType.COMMA) next()
             }
             if (peek().type == TokenType.CLOSE_PAREN) next()
 
@@ -76,18 +81,18 @@ class Parser(val input: MutableList<Token>) {
 
     fun parseBlock(eventName: String): Ast.Block {
         val openParen = next()
-        if (openParen.type != TokenType.OPEN_PAREN) throw IllegalStateException("Expected open paren but got ${openParen.type}")
+        if (openParen.type != TokenType.OPEN_CURLY) throw IllegalStateException("Expected open curly but got ${openParen.type}")
         next()
 
         val commands = mutableListOf<Ast.Command>()
 
-        while (input[pointer].type != TokenType.CLOSE_PAREN) {
+        while (input[pointer].type != TokenType.CLOSE_CURLY) {
             val command = parseCommand()
             commands.add(command)
         }
 
         val closingParen = input[pointer]
-        if (closingParen.type != TokenType.CLOSE_PAREN) throw IllegalStateException("Expected close paren but got ${closingParen.type}")
+        if (closingParen.type != TokenType.CLOSE_CURLY) throw IllegalStateException("Expected close curly but got ${closingParen.type}")
 
         return Ast.Block(commands, eventName)
     }

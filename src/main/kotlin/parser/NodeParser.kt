@@ -3,6 +3,7 @@ package parser
 import dfk.item.DFVariable
 import lexer.Token
 import lexer.TokenType
+import kotlin.math.exp
 
 class NodeParser(val tokens: MutableList<Token>) {
     var index = 0
@@ -92,6 +93,41 @@ class NodeParser(val tokens: MutableList<Token>) {
         else if (tokens[index].type == TokenType.LOCAL || tokens[index].type == TokenType.GAME || tokens[index].type == TokenType.SAVED) return parseVariableScope()
         else if (tokens[index].type == TokenType.START) return parseStart()
         else if (tokens[index].type == TokenType.IF) return parseIf()
+        else if (tokens[index].type == TokenType.REPEAT) return parseRepeat()
+        else if (tokens[index].type == TokenType.OPEN_BRACKET) return parseList()
+        else if (tokens[index].type == TokenType.OPEN_CURLY) return parseDictionary()
+        else if (tokens[index].type == TokenType.OPEN_PAREN) {
+            index++
+            val expr = parseTokens()
+            if (index < tokens.size && tokens[index].type == TokenType.CLOSE_PAREN) {
+                index++
+                return expr
+            }
+        } else {
+            if (tokens[index].type == TokenType.SUB) {
+                val nextIndex = index + 1
+                if (nextIndex < tokens.size) {
+                    val nextToken = tokens[nextIndex]
+                    if (nextToken.type == TokenType.NUMBER) {
+                        tokens.removeAt(index)
+                        tokens.removeAt(index)
+                        tokens.add(index, Token(
+                            TokenType.NUMBER,
+                            -((nextToken.value as Number).toDouble())
+                        ))
+
+                        return parseFactor()
+                    } else if (nextToken.type == TokenType.WORD || nextToken.type == TokenType.OPEN_PAREN) {
+                        tokens.add(index, Token(
+                            TokenType.NUMBER,
+                            0.0
+                        ))
+
+                        return parseFactor()
+                    }
+                }
+            }
+        }
 
         throw IllegalStateException("Unexpected token: ${tokens[index].type} [$index : ${tokens}]")
     }
@@ -150,6 +186,117 @@ class NodeParser(val tokens: MutableList<Token>) {
         )
     }
 
+    private fun parseList(): TreeNode {
+        val list = mutableListOf<TreeNode>()
+
+        val currentTokens = mutableListOf<Token>()
+        val listTokens = mutableListOf<MutableList<Token>>()
+
+        var openParens = 0
+
+        while (index < tokens.size) {
+            if (tokens[index].type == TokenType.OPEN_PAREN) openParens++
+            if (tokens[index].type == TokenType.OPEN_BRACKET) openParens++
+            if (tokens[index].type == TokenType.OPEN_CURLY) openParens++
+            if (tokens[index].type == TokenType.CLOSE_PAREN) openParens--
+            if (tokens[index].type == TokenType.CLOSE_BRACKET) openParens--
+            if (tokens[index].type == TokenType.CLOSE_CURLY) openParens--
+
+            if (openParens == 0) {
+                index++
+                break
+            }
+
+            if (tokens[index].type == TokenType.COMMA && openParens == 1) {
+                listTokens.add(currentTokens.toMutableList())
+                currentTokens.clear()
+
+                index++
+                continue
+            }
+
+            if (openParens == 1 && tokens[index].type == TokenType.OPEN_BRACKET) {
+                index++
+                continue
+            }
+
+            currentTokens.add(tokens[index])
+
+            index++
+        }
+        if (currentTokens.isNotEmpty()) listTokens.add(currentTokens)
+
+        for (t in listTokens) {
+            list.add(parseTokens(t))
+        }
+
+        return parseAllOn(TreeNode("list", value = list))
+    }
+
+    private fun parseDictionary(): TreeNode {
+        val map = mutableMapOf<TreeNode, TreeNode>()
+
+        var openParens = 0
+
+        val currentKeyTokens = mutableListOf<Token>()
+        val listKeyTokens = mutableListOf<MutableList<Token>>()
+
+        val currentValueTokens = mutableListOf<Token>()
+        val listValueTokens = mutableListOf<MutableList<Token>>()
+
+        while (index < tokens.size && tokens[index].type != TokenType.CLOSE_CURLY) {
+            if (tokens[index].type == TokenType.OPEN_PAREN) openParens++
+            if (tokens[index].type == TokenType.OPEN_BRACKET) openParens++
+            if (tokens[index].type == TokenType.OPEN_CURLY) openParens++
+            if (tokens[index].type == TokenType.CLOSE_PAREN) openParens--
+            if (tokens[index].type == TokenType.CLOSE_BRACKET) openParens--
+            if (tokens[index].type == TokenType.CLOSE_CURLY) openParens--
+
+            if (openParens == 0) {
+                index++
+                break
+            }
+
+            if (tokens[index].type == TokenType.COMMA && openParens == 1) {
+                listValueTokens.add(currentValueTokens.toMutableList())
+                currentValueTokens.clear()
+                currentKeyTokens.clear()
+
+                index++
+                continue
+            }
+
+            if (tokens[index].type == TokenType.COLON && openParens == 1) {
+                listKeyTokens.add(currentKeyTokens.toMutableList())
+                currentKeyTokens.clear()
+                currentValueTokens.clear()
+
+                index++
+                continue
+            }
+
+            if (openParens == 1 && tokens[index].type == TokenType.OPEN_CURLY) {
+                index++
+                continue
+            }
+            currentKeyTokens.add(tokens[index])
+            currentValueTokens.add(tokens[index])
+
+            index++
+        }
+        index++
+
+        if (currentKeyTokens.isNotEmpty()) listKeyTokens.add(currentKeyTokens)
+        if (currentValueTokens.isNotEmpty()) listValueTokens.add(currentValueTokens)
+
+        for ((index, t) in listKeyTokens.withIndex()) {
+            if (index >= listValueTokens.size) break
+            map[parseTokens(t)] = parseTokens(listValueTokens[index])
+        }
+
+        return parseAllOn(TreeNode("dict", value = map))
+    }
+
     fun parseIf(): TreeNode {
         index++
         val checkExpression = parseTree()
@@ -162,13 +309,29 @@ class NodeParser(val tokens: MutableList<Token>) {
         )
     }
 
+    fun parseRepeat(): TreeNode {
+        index++
+        val type = parseWord()
+        val expression = parseBlock()
+
+        return TreeNode(
+            "repeat",
+            value = type.value as String,
+            left = expression
+        )
+    }
+
     fun parseBlock(): TreeNode {
         val t = mutableListOf<Token>()
         var openParens = 0
 
         while (index < tokens.size) {
             if (tokens[index].type == TokenType.OPEN_PAREN) openParens++
+            if (tokens[index].type == TokenType.OPEN_CURLY) openParens++
+            if (tokens[index].type == TokenType.OPEN_BRACKET) openParens++
             if (tokens[index].type == TokenType.CLOSE_PAREN) openParens--
+            if (tokens[index].type == TokenType.CLOSE_CURLY) openParens--
+            if (tokens[index].type == TokenType.CLOSE_BRACKET) openParens--
 
             if (openParens == 0) break
 
@@ -191,7 +354,11 @@ class NodeParser(val tokens: MutableList<Token>) {
 
         while (index < tokens.size) {
             if (tokens[index].type == TokenType.OPEN_PAREN) openParens++
+            if (tokens[index].type == TokenType.OPEN_CURLY) openParens++
+            if (tokens[index].type == TokenType.OPEN_BRACKET) openParens++
             if (tokens[index].type == TokenType.CLOSE_PAREN) openParens--
+            if (tokens[index].type == TokenType.CLOSE_CURLY) openParens--
+            if (tokens[index].type == TokenType.CLOSE_BRACKET) openParens--
 
             if (openParens == 0) break
 
@@ -235,6 +402,36 @@ class NodeParser(val tokens: MutableList<Token>) {
         else return tree
     }
 
+    private fun parseAllOn(node: TreeNode): TreeNode {
+        var isNodeChanged = true
+        var currentNode = node
+
+        while (isNodeChanged) {
+            val newNode = parseIndex(currentNode)
+            isNodeChanged = currentNode != newNode
+            currentNode = newNode.copy()
+        }
+
+        return currentNode
+    }
+
+    private fun parseIndex(node: TreeNode): TreeNode {
+        if (index >= tokens.size) return node
+        if (tokens[index].type != TokenType.OPEN_BRACKET) return node
+        val left = node
+
+        index++
+        val right = parseExpression()
+        if (tokens[index].type != TokenType.CLOSE_BRACKET) throw IllegalStateException("Expected closing bracket but got ${tokens[index].type}")
+        index++
+
+        return TreeNode(
+            "index",
+            left = left,
+            right = right
+        )
+    }
+
     fun parseFunction(): TreeNode {
         val token = tokens[index]
 
@@ -276,7 +473,7 @@ class NodeParser(val tokens: MutableList<Token>) {
     fun parseToken(): TreeNode {
         val token = tokens[index]
         index++
-        return TreeNode(token.type.id, value = token.value)
+        return parseAllOn(TreeNode(token.type.id, value = token.value))
     }
 
     fun parseTokens(): TreeNode {

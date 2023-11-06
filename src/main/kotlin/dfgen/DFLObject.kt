@@ -161,7 +161,7 @@ object DefaultObject : DFLObject() {
 
     class WaitFunction : AstConverter {
         override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>) {
-            var duration: VarItem = VarItem.num(0)
+            var duration: VarItem = VarItem.num(1)
             var unit = "Ticks"
             if (tree.arguments.size > 0) {
                 val arg1 = TreeConverter.convertTree(tree.arguments[0], template, objects) as? VarItem

@@ -7,18 +7,17 @@ import dfk.item.DFVariable
 import dfk.item.VarItem
 import dfk.template.DFTemplate
 import parser.Ast
-import parser.Parser
 import parser.TreeNode
-import java.util.StringJoiner
 
 val astConverters = mapOf(
-    "number" to NumberConverter, "word" to WordConverter, "string" to StringConverter, "styled" to StyledTextConverter,
+    "number" to NumberConverter, "word" to WordConverter, "string" to StringConverter, "styled" to StyledTextConverter, "list" to ListConverter, "dict" to DictConverter,
     "true" to TrueConverter, "false" to FalseConverter,
     "assign" to AssignmentConverter, "acc" to AccessorConverter,
     "add" to AdditionConverter, "sub" to SubtractionConverter, "mul" to MultiplicationConverter, "div" to DivisionConverter, "pow" to ExponentConverter, "rem" to RemainderConverter, "mod" to ModuloConverter,
     "inc" to IncrementConverter, "dec" to DecrementConverter,
     "call" to CallConverter, "start_proc" to StartProcConverter,
-    "cond" to IfConverter
+    "cond" to IfConverter, "repeat" to RepeatConverter,
+    "index" to IndexConverter,
 )
 
 interface AstConverter {
@@ -52,6 +51,99 @@ object TrueConverter : AstConverter {
 object FalseConverter : AstConverter {
     override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
         return VarItem.num(0)
+    }
+}
+
+object ListConverter : AstConverter {
+    override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+        val variable = VarItem.tempVar()
+        val groups = mutableListOf<MutableList<VarItem>>()
+        val currentGroup = mutableListOf<VarItem>()
+        for (value in tree.value!! as List<*>) {
+            if (value !is TreeNode) continue
+            val b = TreeConverter.convertTree(value, template, objects)
+            if (b !is VarItem) continue
+            currentGroup.add(b)
+            if (currentGroup.size >= 26) {
+                groups.add(currentGroup.toMutableList())
+                currentGroup.clear()
+            }
+        }
+        if (currentGroup.isNotEmpty()) groups.add(currentGroup)
+        for ((index, group) in groups.withIndex()) {
+            val action = if (index == 0) "CreateList" else "AppendList"
+            val items = group.toMutableList()
+            items.add(0, variable)
+            template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, action).setContent(*items.toTypedArray()))
+        }
+        return variable
+    }
+}
+
+object DictConverter : AstConverter {
+    override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+        val variable = VarItem.tempVar()
+        val keyVariable = VarItem.tempVar()
+        val valueVariable = VarItem.tempVar()
+        val keyGroups = mutableListOf<MutableList<VarItem>>()
+        val valueGroups = mutableListOf<MutableList<VarItem>>()
+        val currentKeyGroup = mutableListOf<VarItem>()
+        val currentValueGroup = mutableListOf<VarItem>()
+        for (value in tree.value!! as Map<*, *>) {
+            if (value.key !is TreeNode) continue
+            if (value.value !is TreeNode) continue
+            val b = TreeConverter.convertTree(value.key as TreeNode, template, objects)
+            if (b !is VarItem) continue
+            currentKeyGroup.add(b)
+            if (currentKeyGroup.size >= 26) {
+                keyGroups.add(currentKeyGroup.toMutableList())
+                currentKeyGroup.clear()
+            }
+
+            val c = TreeConverter.convertTree(value.value as TreeNode, template, objects)
+            if (c !is VarItem) continue
+            currentValueGroup.add(c)
+            if (currentKeyGroup.size >= 26) {
+                valueGroups.add(currentValueGroup.toMutableList())
+                currentValueGroup.clear()
+            }
+        }
+        if (currentKeyGroup.isNotEmpty()) {
+            keyGroups.add(currentKeyGroup)
+            valueGroups.add(currentValueGroup)
+        }
+        for ((index, group) in keyGroups.withIndex()) {
+            val action = if (index == 0) "CreateList" else "AppendList"
+            val items = group.toMutableList()
+            items.add(0, keyVariable)
+            template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, action).setContent(*items.toTypedArray()))
+
+            val valAction = if (index == 0) "CreateList" else "AppendList"
+            val valItems = valueGroups[index].toMutableList()
+            valItems.add(0, valueVariable)
+            template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, valAction).setContent(*valItems.toTypedArray()))
+        }
+
+        template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "CreateDict").setContent(variable, keyVariable, valueVariable))
+
+        return variable
+    }
+}
+
+object IndexConverter : AstConverter {
+    override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+        val v = TreeConverter.convertTree(tree.left!!, template, objects)
+        if (v !is VarItem) return VarItem.num(0)
+        val left = TreeConverter.convertTree(tree.right!!, template, objects) as VarItem
+        val variable = VarItem.tempVar()
+        if (left.type == DFVarType.NUMBER) {
+            val plusOne = VarItem.num("%math(1+${left.value})")
+            template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "GetListValue").setContent(variable, v, plusOne))
+        } else if (left.type == DFVarType.STRING) {
+            template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "GetDictValue").setContent(variable, v, left))
+        }
+
+        return variable
     }
 }
 
@@ -347,5 +439,21 @@ object IfConverter : AstConverter {
         template.addCodeBlock(DFCodeBlock.bracket(true))
         for (command in code.nodes) TreeConverter.convertTree(command.tree, template, objects)
         template.addCodeBlock(DFCodeBlock.bracket(false))
+    }
+}
+
+object RepeatConverter : AstConverter {
+    override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>) {
+        val t = mapOf(
+            "forever" to "Forever"
+        )
+
+        val code = tree.left!!.value!! as Ast.Block
+        val type = t[tree.value!! as String] ?: tree.value as String
+
+        template.addCodeBlock(DFCodeBlock(DFCodeType.REPEAT, type))
+        template.addCodeBlock(DFCodeBlock.bracket(true, repeating = true))
+        for (command in code.nodes) TreeConverter.convertTree(command.tree, template, objects)
+        template.addCodeBlock(DFCodeBlock.bracket(false, repeating = true))
     }
 }

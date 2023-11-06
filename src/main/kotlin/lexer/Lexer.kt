@@ -3,7 +3,7 @@ package lexer
 class Lexer(val source: String) {
 
     fun transform(): MutableList<Token> {
-        val disallowedChars = listOf("\\", " ", "\"", "'", "\n", "\t", "\b", "\r")
+        val disallowedChars = listOf("\\", " ", "\"", "'", "\n", "\t", "\b", "\r", "/")
         val wordAllowedChars = listOf("%", "_")
 
         val tokens = mutableListOf<Token>()
@@ -63,6 +63,14 @@ class Lexer(val source: String) {
                         tokenType,
                         str)
                     )
+                }
+                source[position] == '/' && position + 1 < source.length && source[position + 1] == '/' -> {
+                    position += 2
+
+                    while (position < source.length && source[position] != '\n') {
+                        position++
+                    }
+                    position++
                 }
                 source[position].isLetter() || source[position] == '`' || source[position].toString() in wordAllowedChars -> {
                     val backticks = source[position] == '`'

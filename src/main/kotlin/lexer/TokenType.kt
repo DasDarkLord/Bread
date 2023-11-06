@@ -11,6 +11,7 @@ enum class TokenType {
 
     // Keywords
     IF("if", "if"),
+    REPEAT("repeat", "repeat"),
     EVENT("event", "event"),
     FUNCTION("func", "func"),
     PROCESS("proc", "proc"),
@@ -37,10 +38,15 @@ enum class TokenType {
     REMAINDER("rem", "rem"),
 
     // Misc
-    OPEN_PAREN("oparen", "[(\\[{]", true),
-    CLOSE_PAREN("cparen", "[)\\]}]", true),
+    OPEN_PAREN("oparen", "("),
+    CLOSE_PAREN("cparen", ")"),
+    OPEN_CURLY("ocurl", "{"),
+    CLOSE_CURLY("ccurl", "}"),
+    OPEN_BRACKET("obrack", "["),
+    CLOSE_BRACKET("cbrack", "]"),
     ACCESSOR("acc", "."),
     COMMA("comma", ","),
+    COLON("colon", ":"),
     START("start_proc", "start"),
     ;
 
