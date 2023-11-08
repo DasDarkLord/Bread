@@ -3,7 +3,6 @@ package parser
 import dfk.item.DFVariable
 import lexer.Token
 import lexer.TokenType
-import kotlin.math.exp
 
 class NodeParser(val tokens: MutableList<Token>) {
     var index = 0
@@ -24,7 +23,7 @@ class NodeParser(val tokens: MutableList<Token>) {
     fun parseEquals(): TreeNode {
         var left = parseExpression()
 
-        while (index < tokens.size && (tokens[index].type == TokenType.EQUALS || tokens[index].type == TokenType.NOT_EQUALS || tokens[index].type == TokenType.GREATER_EQUALS || tokens[index].type == TokenType.LESS_EQUALS || tokens[index].type == TokenType.GREATER || tokens[index].type == TokenType.LESS)) {
+        while (index < tokens.size && (tokens[index].type == TokenType.EQUALS || tokens[index].type == TokenType.NOT_EQUALS || tokens[index].type == TokenType.GREATER_EQUALS || tokens[index].type == TokenType.LESS_EQUALS || tokens[index].type == TokenType.GREATER || tokens[index].type == TokenType.LESS || tokens[index].type == TokenType.MATCHES)) {
             val operator = tokens[index].type.id
             index++
             val right = parseExpression()
@@ -94,6 +93,9 @@ class NodeParser(val tokens: MutableList<Token>) {
         else if (tokens[index].type == TokenType.START) return parseStart()
         else if (tokens[index].type == TokenType.IF) return parseIf()
         else if (tokens[index].type == TokenType.REPEAT) return parseRepeat()
+        else if (tokens[index].type == TokenType.REGEX) return parseRegex()
+        else if (tokens[index].type == TokenType.STOP) return parseToken()
+        else if (tokens[index].type == TokenType.RETURN) return parseToken()
         else if (tokens[index].type == TokenType.OPEN_BRACKET) return parseList()
         else if (tokens[index].type == TokenType.OPEN_CURLY) return parseDictionary()
         else if (tokens[index].type == TokenType.OPEN_PAREN) {
@@ -139,6 +141,14 @@ class NodeParser(val tokens: MutableList<Token>) {
             return parseIncDec(parseFunction())
         }
         return parseIncDec(wordToken)
+    }
+
+    fun parseRegex(): TreeNode {
+        index++
+        return TreeNode(
+            "regex",
+            left = parseWord()
+        )
     }
 
     fun parseStart(): TreeNode {
@@ -299,13 +309,21 @@ class NodeParser(val tokens: MutableList<Token>) {
 
     fun parseIf(): TreeNode {
         index++
+
+        val inverted = tokens[index].type == TokenType.BANG
+        if (inverted) index++
+
         val checkExpression = parseTree()
         val ifExpression = parseBlock()
 
         return TreeNode(
             "cond",
             value = checkExpression,
-            left = ifExpression
+            left = ifExpression,
+            arguments = mutableListOf(TreeNode(
+                "invert",
+                value = inverted
+            ))
         )
     }
 
@@ -418,16 +436,17 @@ class NodeParser(val tokens: MutableList<Token>) {
     private fun parseIndex(node: TreeNode): TreeNode {
         if (index >= tokens.size) return node
         if (tokens[index].type != TokenType.OPEN_BRACKET) return node
-        val left = node
 
         index++
+        if (index >= tokens.size) return node
+
         val right = parseExpression()
         if (tokens[index].type != TokenType.CLOSE_BRACKET) throw IllegalStateException("Expected closing bracket but got ${tokens[index].type}")
         index++
 
         return TreeNode(
             "index",
-            left = left,
+            left = node,
             right = right
         )
     }
@@ -443,11 +462,15 @@ class NodeParser(val tokens: MutableList<Token>) {
         var parenCount = 1
         while (index < tokens.size) {
             if (tokens[index].type == TokenType.OPEN_PAREN) parenCount++
+            if (tokens[index].type == TokenType.OPEN_BRACKET) parenCount++
+            if (tokens[index].type == TokenType.OPEN_CURLY) parenCount++
             if (tokens[index].type == TokenType.CLOSE_PAREN) parenCount--
+            if (tokens[index].type == TokenType.CLOSE_BRACKET) parenCount--
+            if (tokens[index].type == TokenType.CLOSE_CURLY) parenCount--
 
             if (parenCount == 0) break
 
-            if (tokens[index].type == TokenType.COMMA) {
+            if (tokens[index].type == TokenType.COMMA && parenCount == 1) {
                 argTokens.add(currentTokens.toTypedArray().toMutableList())
                 currentTokens.clear()
                 index++

@@ -1,5 +1,6 @@
 import dfgen.convertAstToDF
 import dfk.template.CodeClient
+import dfk.template.Recode
 import lexer.Lexer
 import parser.Parser
 import java.io.File
@@ -9,6 +10,8 @@ fun main(args: Array<String>) {
     if (args.isEmpty()) {
         error("Needs atleast one argument for file")
     }
+    println("you MIGHT see a little debug output")
+
     val text = File(args[0]).readLines().joinToString("\n", "", "")
     val lexer = Lexer(text)
     val tokens = lexer.transform()
@@ -17,7 +20,7 @@ fun main(args: Array<String>) {
     val parser = Parser(tokens)
     val events = parser.parseAll()
 
-    println(events)
+    for (event in events) println(event)
 
     val templates = convertAstToDF(events)
 
@@ -25,6 +28,6 @@ fun main(args: Array<String>) {
         println(template.getJson())
     }
 
-    try { CodeClient.sendTemplate(templates) } catch (ignored: ConnectException) { }
-    // Recode.sendTemplate doesn't work
+    try { CodeClient.buildTemplate(templates) } catch (ignored: ConnectException) { }
+//    try { Recode.sendTemplate(templates) } catch (ignored: ConnectException) { }
 }

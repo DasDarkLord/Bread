@@ -18,6 +18,7 @@ val astConverters = mapOf(
     "call" to CallConverter, "start_proc" to StartProcConverter,
     "cond" to IfConverter, "repeat" to RepeatConverter,
     "index" to IndexConverter,
+    "stop" to StopConverter, "ret" to ReturnConverter
 )
 
 interface AstConverter {
@@ -136,8 +137,8 @@ object IndexConverter : AstConverter {
         if (v !is VarItem) return VarItem.num(0)
         val left = TreeConverter.convertTree(tree.right!!, template, objects) as VarItem
         val variable = VarItem.tempVar()
-        if (left.type == DFVarType.NUMBER) {
-            val plusOne = VarItem.num("%math(1+${left.value})")
+        if (left.type == DFVarType.NUMBER || left.type == DFVarType.VARIABLE) { // Assume it's for a list right now
+            val plusOne = VarItem.num("%math(1+${left})")
             template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "GetListValue").setContent(variable, v, plusOne))
         } else if (left.type == DFVarType.STRING) {
             template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "GetDictValue").setContent(variable, v, left))
@@ -334,6 +335,9 @@ object AccessorConverter : AstConverter {
         if (tree.left!!.type == "word") {
             val name = tree.left.value!! as String
 
+            println(objects)
+            println(name)
+
             if (!objects.containsKey(name)) {
                 val newArgs = right.arguments.toMutableList()
                 newArgs.add(0, tree.left)
@@ -402,12 +406,14 @@ object IfConverter : AstConverter {
     override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>) {
         val code = tree.left!!.value!! as Ast.Block
         val check = tree.value!! as TreeNode
+        val inverted = if (tree.arguments.isNotEmpty()) if (tree.arguments[0].value is Boolean) tree.arguments[0].value as Boolean else false else false
+        if (inverted) println(tree)
 
         val cbs = template.codeBlocks.size
         try {
             val v = TreeConverter.convertTree(check, template, objects)
             if (v is CustomIf) {
-                v.customIf(code, tree, template, objects)
+                v.customIf(code, inverted, tree, template, objects)
                 return
             } else throw java.lang.Exception()
         } catch (ignored: Exception) {
@@ -425,15 +431,24 @@ object IfConverter : AstConverter {
             "gt" -> ">"
             "geq" -> ">="
             "leq" -> "<="
+            "match" -> "StringMatches"
             else -> "?"
         }
         var ifCodeBlock = DFCodeBlock(DFCodeType.IF_VARIABLE, action)
         if (action == "?") { // Assume it's  `if (boolVariable)` syntax
             ifCodeBlock = ifCodeBlock.setContent(TreeConverter.convertTree(check, template, objects) as VarItem, TrueConverter.convert(tree, template, objects))
             ifCodeBlock.action = "="
+        } else if (action == "StringMatches") {
+            var rightNode = check.right!!
+            if (rightNode.type == "regex") {
+                rightNode = rightNode.left!!
+                ifCodeBlock = ifCodeBlock.setTag("Regular Expressions", "Enable")
+            }
+            ifCodeBlock = ifCodeBlock.setContent(TreeConverter.convertTree(rightNode, template, objects) as VarItem, TreeConverter.convertTree(check.left!!, template, objects) as VarItem)
         } else {
             ifCodeBlock = ifCodeBlock.setContent(TreeConverter.convertTree(check.left!!, template, objects) as VarItem, TreeConverter.convertTree(check.right!!, template, objects) as VarItem)
         }
+        if (inverted) ifCodeBlock.inverter = "NOT"
 
         template.addCodeBlock(ifCodeBlock)
         template.addCodeBlock(DFCodeBlock.bracket(true))
@@ -455,5 +470,17 @@ object RepeatConverter : AstConverter {
         template.addCodeBlock(DFCodeBlock.bracket(true, repeating = true))
         for (command in code.nodes) TreeConverter.convertTree(command.tree, template, objects)
         template.addCodeBlock(DFCodeBlock.bracket(false, repeating = true))
+    }
+}
+
+object StopConverter : AstConverter {
+    override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>) {
+        template.addCodeBlock(DFCodeBlock(DFCodeType.CONTROL, "StopRepeat"))
+    }
+}
+
+object ReturnConverter : AstConverter {
+    override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>) {
+        template.addCodeBlock(DFCodeBlock(DFCodeType.CONTROL, "Return"))
     }
 }

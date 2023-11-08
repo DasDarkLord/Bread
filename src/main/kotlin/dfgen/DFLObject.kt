@@ -29,7 +29,8 @@ class DFLPlayer : DFLObject {
         "hurt" to "Damage",
         "damage" to "Damage",
         "teleport" to "Teleport",
-        "tp" to "Teleport"
+        "tp" to "Teleport",
+        "actionbar" to "ActionBar"
     )
 
     class NameField(val player: DFLPlayer) : AstConverter {
@@ -99,7 +100,7 @@ class DFLPlayer : DFLObject {
     }
 
     class CustomPlayerIf(val name: String) : CustomIf {
-        override fun customIf(block: Ast.Block, tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>) {
+        override fun customIf(block: Ast.Block, inverted: Boolean, tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>) {
             template.addCodeBlock(DFCodeBlock(DFCodeType.IF_PLAYER, name))
             template.addCodeBlock(DFCodeBlock.bracket(true))
             for (node in block.nodes) TreeConverter.convertTree(node.tree, template, objects)
@@ -127,6 +128,16 @@ object DefaultObject : DFLObject() {
             val contents = mutableListOf(variable)
             contents.addAll(tree.arguments.map { TreeConverter.convertTree(it, template, objects) as VarItem })
             template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "StyledText").setContent(*contents.toTypedArray()))
+            return variable
+        }
+    }
+
+    class ParseStyledTextFunction : AstConverter {
+        override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+            val variable = VarItem.tempVar()
+            val contents = mutableListOf(variable)
+            contents.addAll(tree.arguments.map { TreeConverter.convertTree(it, template, objects) as VarItem })
+            template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "ParseMiniMessageExpr").setContent(*contents.toTypedArray()))
             return variable
         }
     }
@@ -183,6 +194,17 @@ object DefaultObject : DFLObject() {
         }
     }
 
+    class ListLengthFunction : AstConverter {
+        override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+            val list = TreeConverter.convertTree(tree.arguments[0], template, objects)
+            if (list !is VarItem) return VarItem.num(0)
+
+            val variable = VarItem.tempVar()
+            template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "ListLength").setContent(variable, list))
+            return variable
+        }
+    }
+
     override fun accessFunc(name: String): AstConverter? {
         functions["str"] = StringFunction()
         functions["string"] = StringFunction()
@@ -191,6 +213,12 @@ object DefaultObject : DFLObject() {
         functions["number"] = NumberFunction()
         functions["loc"] = LocationFunction()
         functions["location"] = LocationFunction()
+        functions["parsestyled"] = ParseStyledTextFunction()
+        functions["parseStyled"] = ParseStyledTextFunction()
+        functions["listlen"] = ListLengthFunction()
+        functions["listLen"] = ListLengthFunction()
+        functions["listLength"] = ListLengthFunction()
+        functions["listlength"] = ListLengthFunction()
 
         functions["wait"] = WaitFunction()
         return super.accessFunc(name)
@@ -198,10 +226,11 @@ object DefaultObject : DFLObject() {
 }
 
 interface CustomIf : AstConverter {
-    fun customIf(block: Ast.Block, tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): Any?
+    fun customIf(block: Ast.Block, inverted: Boolean, tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): Any?
 
     override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): Any? {
-        return customIf(tree.left!!.value!! as Ast.Block, tree, template, objects)
+        val inverted = if (tree.arguments.isNotEmpty()) if (tree.arguments[0].value is Boolean) tree.arguments[0].value as Boolean else false else false
+        return customIf(tree.left!!.value!! as Ast.Block, inverted, tree, template, objects)
     }
 }
 
@@ -223,6 +252,7 @@ object WordObject : DFLObject() {
 
     class RepeatStringFunction() : WordObjectConverter {
         override fun convert(v: VarItem, tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+            println("arg 0 " + tree.arguments[0])
             val repeatTimes = TreeConverter.convertTree(tree.arguments[0], template, objects) as VarItem
             if (v.type == DFVarType.VARIABLE) {
                 template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "RepeatString").setContent(v, v, repeatTimes))
@@ -236,12 +266,56 @@ object WordObject : DFLObject() {
 
     }
 
+    class StringSplitFunction() : WordObjectConverter {
+        override fun convert(v: VarItem, tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+            val variable = VarItem.tempVar()
+            val splitter: String = if (tree.arguments.isNotEmpty()) {
+                val s = TreeConverter.convertTree(tree.arguments[0], template, objects)
+                if (s is VarItem && s.type == DFVarType.STRING) {
+                    s.value as String
+                } else " "
+            } else " "
+            template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "SplitString").setContent(variable, v, VarItem.str(splitter)))
+            return variable
+        }
+    }
+
+    class ListAddFunction() : WordObjectConverter {
+        override fun convert(v: VarItem, tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+            var cb = DFCodeBlock(DFCodeType.SET_VARIABLE, "AppendValue").setContent(v)
+            for ((index, argument) in tree.arguments.withIndex()) {
+                cb = cb.setContent(index + 1, TreeConverter.convertTree(argument, template, objects) as VarItem)
+            }
+            template.addCodeBlock(cb)
+            return v
+        }
+    }
+
+    class ListJoinFunction() : WordObjectConverter {
+        override fun convert(v: VarItem, tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+            val variable = VarItem.tempVar()
+            var cb = DFCodeBlock(DFCodeType.SET_VARIABLE, "JoinString").setContent(variable, v)
+            if (tree.arguments.isNotEmpty()) {
+                cb.setContent(2, TreeConverter.convertTree(tree.arguments[0], template, objects) as VarItem)
+                if (tree.arguments.size > 1) {
+                    cb.setContent(3, TreeConverter.convertTree(tree.arguments[1], template, objects) as VarItem)
+                }
+            }
+            template.addCodeBlock(cb)
+            return variable
+        }
+
+    }
+
     override fun accessFunc(name: String): AstConverter? {
         functions["shift"]  = LocShiftFunction("all")
         functions["shiftX"] = LocShiftFunction("X")
         functions["shiftY"] = LocShiftFunction("Y")
         functions["shiftZ"] = LocShiftFunction("Z")
         functions["repeat"] = RepeatStringFunction()
+        functions["split"] = StringSplitFunction()
+        functions["add"] = ListAddFunction()
+        functions["join"] = ListJoinFunction()
         return super.accessFunc(name)
     }
 
@@ -255,6 +329,19 @@ object WordObject : DFLObject() {
 
             return convert(TreeConverter.convertTree(tree.arguments[0], template, objects) as VarItem, newTree, template, objects)
         }
+    }
+
+}
+
+class EventObject : DFLObject() {
+
+    fun addField(name: String, value: VarItem): EventObject {
+        fields[name] = object : AstConverter {
+            override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+                return value
+            }
+        }
+        return this
     }
 
 }

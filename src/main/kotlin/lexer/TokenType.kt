@@ -27,8 +27,11 @@ enum class TokenType {
     LESS_EQUALS("leq", "<="),
     GREATER("gt", ">"),
     LESS("lt", "<"),
+    MATCHES("match", "matches"),
+    REGEX("rex", "regex"),
     INCREMENT_TOKEN("inc", "++"),
     DECREMENT_TOKEN("dec", "--"),
+    BANG("bang", "!"),
     ADD("add", "+"),
     SUB("sub", "-"),
     MUL("mul", "*"),
@@ -48,6 +51,8 @@ enum class TokenType {
     COMMA("comma", ","),
     COLON("colon", ":"),
     START("start_proc", "start"),
+    RETURN("ret", "return"),
+    STOP("stop", "stop"),
     ;
 
     val id: String

@@ -74,14 +74,16 @@ class Parser(val input: MutableList<Token>) {
 
             val block = parseBlock(nameToken.value as String)
 
-            return Ast.Event(nameToken.value, block, EventType.Function(paramMap))
-        } else if (eventToken.type == TokenType.PROCESS) return Ast.Event(nameToken.value as String, parseBlock(nameToken.value), EventType.Process)
-        else return Ast.Event(nameToken.value as String, parseBlock(nameToken.value), EventType.Event)
+            return Ast.Event(nameToken.value as String, block, EventType.Function(paramMap))
+        } else if (eventToken.type == TokenType.PROCESS) {
+            return Ast.Event(nameToken.value as String, parseBlock(nameToken.value as String), EventType.Process)
+        }
+        else return Ast.Event(nameToken.value as String, parseBlock(nameToken.value as String), EventType.Event)
     }
 
     fun parseBlock(eventName: String): Ast.Block {
         val openParen = next()
-        if (openParen.type != TokenType.OPEN_CURLY) throw IllegalStateException("Expected open curly but got ${openParen.type}")
+        if (openParen.type != TokenType.OPEN_CURLY) throw IllegalStateException("Expected open curly but got ${openParen.type} at $pointer $openParen")
         next()
 
         val commands = mutableListOf<Ast.Command>()

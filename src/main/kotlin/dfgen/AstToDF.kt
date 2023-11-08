@@ -15,7 +15,9 @@ fun convertAstToDF(events: List<Ast.Event>): List<DFTemplate> {
         "leftclick" to "LeftClick",
         "lc" to "LeftClick",
         "rightclick" to "RightClick",
-        "rc" to "RightClick"
+        "rc" to "RightClick",
+        "cmd" to "Command",
+        "command" to "Command"
     )
 
     val templates = mutableListOf<DFTemplate>()
@@ -44,11 +46,17 @@ fun convertAstToDF(events: List<Ast.Event>): List<DFTemplate> {
             "player" to DFLPlayer("Default"),
             "default" to DFLPlayer("Default"),
             "selection" to DFLPlayer("Selection"),
-            "killer" to DFLPlayer("killer"),
-            "damager" to DFLPlayer("damager"),
-            "victim" to DFLPlayer("victim"),
-            "shooter" to DFLPlayer("shooter")
+            "killer" to DFLPlayer("Killer"),
+            "damager" to DFLPlayer("Damager"),
+            "victim" to DFLPlayer("Victim"),
+            "shooter" to DFLPlayer("Shooter"),
+            "all" to DFLPlayer("AllPlayers")
         )
+
+        if (name == "Command") {
+            defaultObjects["event"] = EventObject()
+                .addField("arguments", VarItem.gameValue("Event Command Arguments", "Default"))
+        }
 
         val nodes = code.nodes
         for (node in nodes) {

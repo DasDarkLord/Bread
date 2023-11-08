@@ -1,5 +1,7 @@
 package lexer
 
+import kotlin.math.sin
+
 class Lexer(val source: String) {
 
     fun transform(): MutableList<Token> {
@@ -97,6 +99,9 @@ class Lexer(val source: String) {
 
                     if (!backticks) {
                         for (type in TokenType.entries) {
+                            if (tokens.isNotEmpty()) {
+                                if (tokens[tokens.size - 1].type == TokenType.ACCESSOR) break
+                            }
                             if (type.word != null && type.word == str) {
                                 tokenType = type
                                 break
@@ -150,6 +155,13 @@ class Lexer(val source: String) {
                                 type,
                                 op
                             ))
+
+                            if (type == TokenType.ACCESSOR) {
+                                if (tokens.size > 1) {
+                                    val lastType = tokens[tokens.size - 2].type
+                                    if (lastType == TokenType.EVENT) tokens[tokens.size - 2].type = TokenType.WORD
+                                }
+                            }
 
                             val range = IntRange(0, opLen - 1)
                             str = str.removeRange(range)

@@ -7,14 +7,38 @@ import java.net.URI
 class CodeClient {
 
     companion object {
-        fun sendTemplate(templates: List<DFTemplate>) {
-            val client = WSCCClient(URI("ws://localhost:31375"), templates.map { it.compressed() })
+        fun buildTemplate(templates: List<DFTemplate>) {
+            val client = CCBuildClient(URI("ws://localhost:31375"), templates.map { it.compressed() })
+            client.connectionLostTimeout = 5000
+            client.connect()
+        }
+        fun giveTemplate(templates: List<DFTemplate>) {
+            val client = CCSetInvClient(URI("ws://localhost:31375"), templates.map { it.compressed() })
             client.connectionLostTimeout = 5000
             client.connect()
         }
     }
 
-    class WSCCClient(uri: URI, private val templates: List<String>) : WebSocketClient(uri) {
+    class CCSetInvClient(uri: URI, private val templates: List<String>) : WebSocketClient(uri) {
+        override fun onOpen(handshakedata: ServerHandshake?) { }
+
+        override fun onMessage(message: String?) {
+            println(message)
+            if (message == "auth") {
+                for ((index, template) in templates.withIndex()) {
+                    send("give {Count:1b,id:\"minecraft:ender_chest\",tag:{PublicBukkitValues:{\"hypercube:codetemplatedata\":'{\"author\":\"guh\",\"name\":\"hi\",\"version\":1,\"code\":\"$template\"}'}}}")
+                }
+                close()
+            }
+        }
+
+        override fun onClose(code: Int, reason: String?, remote: Boolean) { }
+
+        override fun onError(ex: java.lang.Exception?) { }
+
+    }
+
+    class CCBuildClient(uri: URI, private val templates: List<String>) : WebSocketClient(uri) {
 
         override fun onMessage(p0: String?) {
             if (p0 == "auth") {

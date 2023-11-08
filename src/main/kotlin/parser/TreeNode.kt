@@ -41,6 +41,9 @@ data class TreeNode(val type: String, val left: TreeNode? = null, val right: Tre
         else if (value is List<*>) listJson(value)
         else if (value is Map<*, *>) mapJson(value)
         else if (value is TreeNode) value.json()
+        else if (value is Ast.Command) value.json()
+        else if (value is Ast.Block) value.json()
+        else if (value is Ast.Event) value.json()
         else JsonPrimitive(value.toString())
     }
 }

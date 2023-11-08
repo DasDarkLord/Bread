@@ -15,7 +15,9 @@ enum class DFVarType {
     POTION("pot"),
     SOUND("snd"),
     PART("part"),
-    PARAMETER("pn_el");
+    PARAMETER("pn_el"),
+    LIST("list"),
+    DICT("dict");
 
     val id: String
     constructor(i: String) {
@@ -33,7 +35,8 @@ enum class DFVarType {
                 "potion" to "pot",
                 "vector" to "vec",
                 "number" to "num",
-                "variable" to "var"
+                "variable" to "var",
+                "dictionary" to "dict",
             )
             val newId = altNames[id] ?: id
 
