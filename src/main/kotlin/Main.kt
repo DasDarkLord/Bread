@@ -13,7 +13,7 @@ import java.net.ConnectException
 
 val pairs = mutableListOf<Pair<String, MutableMap<String, DFVarType>>>()
 
-fun fullLex(str: String): Pair<MutableList<Token>, List<DFTemplate>> {
+fun fullLex(str: String, disallowedImports: MutableList<String> = mutableListOf()): Pair<MutableList<Token>, List<DFTemplate>> {
     val lexer = Lexer(str)
 
     val tokens = lexer.transform()
@@ -21,7 +21,7 @@ fun fullLex(str: String): Pair<MutableList<Token>, List<DFTemplate>> {
 
     val templates = mutableListOf<DFTemplate>()
 
-    val importProcessed = preprocessImports(tokens)
+    val importProcessed = preprocessImports(tokens, disallowedImports)
     templates.addAll(importProcessed.second)
 
     val templateProcessed = preprocessTemplates(importProcessed.first)
@@ -41,7 +41,7 @@ fun main(args: Array<String>) {
     println("you MIGHT see a little debug output")
 
     val text = File(args[0]).readLines().joinToString("\n", "", "")
-    val pair = fullLex(text)
+    val pair = fullLex(text, mutableListOf(File(args[0]).nameWithoutExtension))
     val tokens = pair.first
     val impTemplates = pair.second
 

@@ -7,7 +7,7 @@ import lexer.TokenType
 import java.io.File
 import java.util.Base64
 
-fun preprocessImports(tokens: List<Token>): Pair<MutableList<Token>, MutableList<DFTemplate>> {
+fun preprocessImports(tokens: List<Token>, disallowedImports: MutableList<String> = mutableListOf()): Pair<MutableList<Token>, MutableList<DFTemplate>> {
     val added = mutableListOf<Token>()
     val removeIndexes = mutableListOf<Int>()
 
@@ -17,10 +17,12 @@ fun preprocessImports(tokens: List<Token>): Pair<MutableList<Token>, MutableList
             removeIndexes.add(index)
             removeIndexes.add(index + 1)
             val f = tokens[index + 1].value as String
+            if (f in disallowedImports) continue
+            disallowedImports.add(f)
 
             for (file in File("./").listFiles()!!) {
                 if (file.name == f || file.nameWithoutExtension == f) {
-                    val pair = fullLex(file.readLines().joinToString("\n", "", ""))
+                    val pair = fullLex(file.readLines().joinToString("\n", "", ""), disallowedImports)
                     added.addAll(pair.first)
                     templates.addAll(pair.second)
                     break
