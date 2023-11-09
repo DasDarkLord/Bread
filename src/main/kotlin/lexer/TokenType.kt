@@ -11,13 +11,14 @@ enum class TokenType {
 
     // Keywords
     IF("if", "if"),
+    ELSE("else", "else"),
     REPEAT("repeat", "repeat"),
     EVENT("event", "event"),
     FUNCTION("func", "func"),
     PROCESS("proc", "proc"),
     GAME("game", "game"),
     LOCAL("local", "local"),
-    SAVED("save", "saved"),
+    SAVED("save", "save"),
 
     // Operators
     ASSIGNMENT("assign", "="),
@@ -28,6 +29,8 @@ enum class TokenType {
     GREATER("gt", ">"),
     LESS("lt", "<"),
     MATCHES("match", "matches"),
+    IN("in", "in"),
+    IS("is", "is"),
     REGEX("rex", "regex"),
     INCREMENT_TOKEN("inc", "++"),
     DECREMENT_TOKEN("dec", "--"),
@@ -53,6 +56,8 @@ enum class TokenType {
     START("start_proc", "start"),
     RETURN("ret", "return"),
     STOP("stop", "stop"),
+    IMPORT("import", "import"),
+    TEMPLATE("template", "template"),
     ;
 
     val id: String

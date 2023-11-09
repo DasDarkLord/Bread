@@ -8,12 +8,10 @@ import dfk.codeblock.DFCodeBlock
 import dfk.codeblock.DFCodeType
 import dfk.item.DFVarType
 import dfk.item.DFVariable
-import java.io.BufferedReader
-import java.io.ByteArrayOutputStream
-import java.io.IOException
-import java.io.InputStreamReader
-import java.io.UncheckedIOException
+import dfk.item.VarItem
+import java.io.*
 import java.nio.charset.StandardCharsets
+import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
 
@@ -21,11 +19,95 @@ class DFTemplate {
     val codeBlocks: MutableList<DFCodeBlock> = mutableListOf()
 
     companion object {
+        fun compress(stringToCompress: String): ByteArray {
+            try {
+                ByteArrayOutputStream().use { baos ->
+                    GZIPOutputStream(baos).use { gzipOutput ->
+                        gzipOutput.write(stringToCompress.toByteArray(StandardCharsets.UTF_8))
+                        gzipOutput.finish()
+                        return baos.toByteArray()
+                    }
+                }
+            } catch (e: IOException) {
+                throw UncheckedIOException("Error while compression!", e)
+            }
+        }
+
+        fun decompressGzip(compressedBytes: ByteArray): String {
+            val outputStream = ByteArrayOutputStream()
+            val inputStream = GZIPInputStream(ByteArrayInputStream(compressedBytes))
+            val buffer = ByteArray(1024)
+            var bytesRead: Int
+
+            while (inputStream.read(buffer).also { bytesRead = it } != -1) {
+                outputStream.write(buffer, 0, bytesRead)
+            }
+
+            return outputStream.toString("UTF-8")
+        }
+
+        fun fromJson(templateStr: String): DFTemplate {
+            val template = DFTemplate()
+
+            println("Template: $templateStr")
+            val json = Gson().fromJson(templateStr, JsonObject::class.java)
+            val blocks = json["blocks"].asJsonArray
+            for (block in blocks.map { it.asJsonObject }) {
+                if (block["id"].asString == "bracket") {
+                    template.addCodeBlock(DFCodeBlock.bracket(
+                        block["direct"].asString == "open",
+                        block["type"].asString == "repeat"
+                    ))
+                    continue
+                }
+
+                val codeBlockType = DFCodeType.fromId(block["block"].asString)
+                val action = if (block.has("data")) block["data"].asString
+                else block["action"].asString
+
+                var cb = DFCodeBlock(codeBlockType, action)
+
+                val varItems = mutableListOf<VarItem>()
+                val tags = mutableMapOf<String, String>()
+
+                val args = block["args"].asJsonObject
+                val items = args["items"].asJsonArray
+                for (itemJ in items.map { it.asJsonObject }) {
+                    val item = itemJ["item"].asJsonObject
+                    if (item["id"].asString == "bl_tag") {
+                        val data = item["data"].asJsonObject
+                        tags[data["tag"].asString] = data["option"].asString
+                        continue
+                    }
+                    if (item["id"].asString == "hint") continue // no hints
+
+                    val type = DFVarType.fromId(item["id"].asString)
+                    val data = item["data"].asJsonObject
+
+                    val varItem: VarItem = when (type) {
+                        DFVarType.VARIABLE -> VarItem.variable(data["name"].asString, DFVariable.VariableScope.fromId(data["scope"].asString))
+                        DFVarType.STRING -> VarItem.str(data["name"].asString)
+                        DFVarType.STYLED_TEXT -> VarItem.styled(data["name"].asString)
+                        DFVarType.NUMBER -> VarItem.num(data["name"].asString)
+                        else -> throw UnsupportedOperationException("Unsupported type $type")
+                    }
+                    varItems.add(varItem)
+                }
+
+                cb.setContent(*varItems.toTypedArray())
+                for (tag in tags) cb.setTag(tag.key, tag.value)
+
+                template.addCodeBlock(cb)
+            }
+
+            return template
+        }
+
         val actionDump: JsonObject by lazy {
             val reader = BufferedReader(InputStreamReader(DFTemplate::class.java.classLoader.getResourceAsStream("actiondump.json")))
             val lines = reader.readLines()
             val json = lines.joinToString("\n", "", "")
-            return@lazy Gson().fromJson(json, JsonObject::class.java)
+            Gson().fromJson(json, JsonObject::class.java)
         }
     }
 
@@ -183,20 +265,6 @@ class DFTemplate {
 
     fun compressed(): String {
         return java.util.Base64.getEncoder().encodeToString(compress(getJson().toString()))
-    }
-
-    private fun compress(stringToCompress: String): ByteArray {
-        try {
-            ByteArrayOutputStream().use { baos ->
-                GZIPOutputStream(baos).use { gzipOutput ->
-                    gzipOutput.write(stringToCompress.toByteArray(StandardCharsets.UTF_8))
-                    gzipOutput.finish()
-                    return baos.toByteArray()
-                }
-            }
-        } catch (e: IOException) {
-            throw UncheckedIOException("Error while compression!", e)
-        }
     }
 
 }

@@ -1,5 +1,6 @@
 package parser
 
+import dfgen.VariableTracker
 import dfgen.WordConverter
 import dfk.item.DFVarType
 import dfk.item.DFVariable
@@ -23,6 +24,40 @@ class Parser(val input: MutableList<Token>) {
         val token = peek()
         pointer++
         return token
+    }
+
+    fun getFunctions(): List<Pair<String, MutableMap<String, DFVarType>>> {
+        val list = mutableListOf<Pair<String, MutableMap<String, DFVarType>>>()
+
+        pointer = -1
+        while (hasNext()) {
+            if (peek().type == TokenType.FUNCTION) {
+                next()
+                val name = next().value as String
+
+                val paramMap = mutableMapOf<String, DFVarType>()
+                next()
+                while (hasNext() && peek().type != TokenType.CLOSE_PAREN) {
+                    val paramName = next()
+                    var varType = DFVarType.ANY
+                    if (peek().type == TokenType.COLON) {
+                        next()
+                        varType = DFVarType.fromId(next().value as String)
+                    }
+
+                    paramMap[paramName.value as String] = varType
+
+                    if (peek().type == TokenType.COMMA) next()
+                }
+                if (peek().type == TokenType.CLOSE_PAREN) next()
+
+                list.add(Pair(name, paramMap))
+            }
+            next()
+        }
+        pointer = -1
+
+        return list
     }
 
     fun parseAll(): List<Ast.Event> {
@@ -67,6 +102,8 @@ class Parser(val input: MutableList<Token>) {
                 }
 
                 paramMap[paramName.value as String] = varType
+
+                VariableTracker.setSavedType(paramName.value as String, varType)
 
                 if (peek().type == TokenType.COMMA) next()
             }

@@ -32,4 +32,14 @@ enum class DFCodeType {
         hasBrackets = b
         hasChest = c
     }
+
+    companion object {
+        fun fromId(str: String): DFCodeType {
+            for (type in entries) {
+                if (type.jsonName.lowercase() == str.lowercase()) return type
+                if (type.blockName.lowercase() == str.lowercase()) return type
+            }
+            return PLAYER_ACTION
+        }
+    }
 }

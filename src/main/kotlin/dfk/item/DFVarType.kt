@@ -3,25 +3,27 @@ package dfk.item
 import com.sun.org.apache.xerces.internal.impl.dv.xs.AnySimpleDV
 
 enum class DFVarType {
-    STRING("txt"),
-    STYLED_TEXT("comp"),
-    NUMBER("num"),
-    VARIABLE("var"),
-    LOCATION("loc"),
-    ITEM("item"),
-    ANY("any"),
-    GAME_VALUE("g_val"),
-    VECTOR("vec"),
-    POTION("pot"),
-    SOUND("snd"),
-    PART("part"),
-    PARAMETER("pn_el"),
-    LIST("list"),
-    DICT("dict");
+    STRING("txt", "TEXT"),
+    STYLED_TEXT("comp", "COMPONENT"),
+    NUMBER("num", "NUMBER"),
+    VARIABLE("var", "VARIABLE"),
+    LOCATION("loc", "LOCATION"),
+    ITEM("item", "ITEM"),
+    ANY("any", "ANY"),
+    GAME_VALUE("g_val", ""),
+    VECTOR("vec", "VECTOR"),
+    POTION("pot", "POTION"),
+    SOUND("snd", "SOUND"),
+    PART("part", "PARTICLE"),
+    PARAMETER("pn_el", ""),
+    LIST("list", "LIST"),
+    DICT("dict", "DICT");
 
     val id: String
-    constructor(i: String) {
+    val actionDumpId: String
+    constructor(i: String, adi: String) {
         id = i
+        actionDumpId = adi
     }
 
     companion object {
@@ -42,6 +44,7 @@ enum class DFVarType {
 
             for (t in entries) {
                 if (t.id == newId) return t
+                if (t.actionDumpId == id.uppercase()) return t
             }
             return ANY
         }

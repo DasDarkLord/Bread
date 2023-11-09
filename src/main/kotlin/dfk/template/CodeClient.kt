@@ -11,11 +11,20 @@ class CodeClient {
             val client = CCBuildClient(URI("ws://localhost:31375"), templates.map { it.compressed() })
             client.connectionLostTimeout = 5000
             client.connect()
+            Thread {
+                Thread.sleep(10000)
+                if (!client.isClosed && !client.isClosing) client.close()
+            }.start()
         }
+
         fun giveTemplate(templates: List<DFTemplate>) {
             val client = CCSetInvClient(URI("ws://localhost:31375"), templates.map { it.compressed() })
             client.connectionLostTimeout = 5000
             client.connect()
+            Thread {
+                Thread.sleep(10000)
+                if (!client.isClosed && !client.isClosing) client.close()
+            }.start()
         }
     }
 

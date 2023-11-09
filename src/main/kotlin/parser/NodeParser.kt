@@ -23,7 +23,7 @@ class NodeParser(val tokens: MutableList<Token>) {
     fun parseEquals(): TreeNode {
         var left = parseExpression()
 
-        while (index < tokens.size && (tokens[index].type == TokenType.EQUALS || tokens[index].type == TokenType.NOT_EQUALS || tokens[index].type == TokenType.GREATER_EQUALS || tokens[index].type == TokenType.LESS_EQUALS || tokens[index].type == TokenType.GREATER || tokens[index].type == TokenType.LESS || tokens[index].type == TokenType.MATCHES)) {
+        while (index < tokens.size && (tokens[index].type == TokenType.EQUALS || tokens[index].type == TokenType.NOT_EQUALS || tokens[index].type == TokenType.GREATER_EQUALS || tokens[index].type == TokenType.LESS_EQUALS || tokens[index].type == TokenType.GREATER || tokens[index].type == TokenType.LESS || tokens[index].type == TokenType.MATCHES || tokens[index].type == TokenType.IN)) {
             val operator = tokens[index].type.id
             index++
             val right = parseExpression()
@@ -71,9 +71,22 @@ class NodeParser(val tokens: MutableList<Token>) {
     }
 
     fun parseAccessor(): TreeNode {
-        var left = parseFactor()
+        var left = parseIs()
 
         while (index < tokens.size && (tokens[index].type == TokenType.ACCESSOR)) {
+            val operator = tokens[index].type.id
+            index++
+            val right = parseIs()
+            left = TreeNode(operator, left, right)
+        }
+
+        return left
+    }
+
+    fun parseIs(): TreeNode {
+        var left = parseFactor()
+
+        while (index < tokens.size && (tokens[index].type == TokenType.IS)) {
             val operator = tokens[index].type.id
             index++
             val right = parseFactor()
@@ -103,7 +116,7 @@ class NodeParser(val tokens: MutableList<Token>) {
             val expr = parseTokens()
             if (index < tokens.size && tokens[index].type == TokenType.CLOSE_PAREN) {
                 index++
-                return expr
+                return parseAllOn(expr)
             }
         } else {
             if (tokens[index].type == TokenType.SUB) {
@@ -118,14 +131,14 @@ class NodeParser(val tokens: MutableList<Token>) {
                             -((nextToken.value as Number).toDouble())
                         ))
 
-                        return parseFactor()
+                        return parseAllOn(parseFactor())
                     } else if (nextToken.type == TokenType.WORD || nextToken.type == TokenType.OPEN_PAREN) {
                         tokens.add(index, Token(
                             TokenType.NUMBER,
                             0.0
                         ))
 
-                        return parseFactor()
+                        return parseAllOn(parseFactor())
                     }
                 }
             }
@@ -316,10 +329,17 @@ class NodeParser(val tokens: MutableList<Token>) {
         val checkExpression = parseTree()
         val ifExpression = parseBlock()
 
+        val elseExpression: TreeNode?
+        if (index < tokens.size && tokens[index].type == TokenType.ELSE) {
+            index++
+            elseExpression = parseBlock()
+        } else elseExpression = null
+
         return TreeNode(
             "cond",
             value = checkExpression,
             left = ifExpression,
+            right = elseExpression,
             arguments = mutableListOf(TreeNode(
                 "invert",
                 value = inverted

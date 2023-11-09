@@ -7,6 +7,7 @@ import dfk.item.VarItem
 import dfk.template.DFTemplate
 import parser.Ast
 import parser.TreeNode
+import java.time.temporal.ValueRange
 
 open class DFLObject {
     val fields: MutableMap<String, AstConverter> = mutableMapOf()
@@ -101,9 +102,13 @@ class DFLPlayer : DFLObject {
 
     class CustomPlayerIf(val name: String) : CustomIf {
         override fun customIf(block: Ast.Block, inverted: Boolean, tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>) {
-            template.addCodeBlock(DFCodeBlock(DFCodeType.IF_PLAYER, name))
+            val cb = DFCodeBlock(DFCodeType.IF_PLAYER, name)
+            cb.inverter = if (inverted) "NOT" else ""
+            template.addCodeBlock(cb)
             template.addCodeBlock(DFCodeBlock.bracket(true))
+
             for (node in block.nodes) TreeConverter.convertTree(node.tree, template, objects)
+
             template.addCodeBlock(DFCodeBlock.bracket(false))
         }
 
@@ -118,6 +123,7 @@ object DefaultObject : DFLObject() {
             val contents = mutableListOf(variable)
             contents.addAll(tree.arguments.map { TreeConverter.convertTree(it, template, objects) as VarItem })
             template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "String").setContent(*contents.toTypedArray()))
+            VariableTracker.setSavedType(variable, DFVarType.STRING)
             return variable
         }
     }
@@ -128,6 +134,7 @@ object DefaultObject : DFLObject() {
             val contents = mutableListOf(variable)
             contents.addAll(tree.arguments.map { TreeConverter.convertTree(it, template, objects) as VarItem })
             template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "StyledText").setContent(*contents.toTypedArray()))
+            VariableTracker.setSavedType(variable, DFVarType.STYLED_TEXT)
             return variable
         }
     }
@@ -138,6 +145,7 @@ object DefaultObject : DFLObject() {
             val contents = mutableListOf(variable)
             contents.addAll(tree.arguments.map { TreeConverter.convertTree(it, template, objects) as VarItem })
             template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "ParseMiniMessageExpr").setContent(*contents.toTypedArray()))
+            VariableTracker.setSavedType(variable, DFVarType.STYLED_TEXT)
             return variable
         }
     }
@@ -151,6 +159,7 @@ object DefaultObject : DFLObject() {
                 arg = StringFunction().convert(tree, template, objects)
             }
             template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "ParseNumber").setContent(variable, arg))
+            VariableTracker.setSavedType(variable, DFVarType.NUMBER)
             return variable
         }
     }
@@ -201,6 +210,7 @@ object DefaultObject : DFLObject() {
 
             val variable = VarItem.tempVar()
             template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "ListLength").setContent(variable, list))
+            VariableTracker.setSavedType(variable, DFVarType.NUMBER)
             return variable
         }
     }
@@ -247,6 +257,7 @@ object WordObject : DFLObject() {
             } else {
                 template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "ShiftOnAxis").setContent(v, arg0).setTag("Coordinate", axis))
             }
+            VariableTracker.setSavedType(v, DFVarType.LOCATION)
         }
     }
 
@@ -256,10 +267,12 @@ object WordObject : DFLObject() {
             val repeatTimes = TreeConverter.convertTree(tree.arguments[0], template, objects) as VarItem
             if (v.type == DFVarType.VARIABLE) {
                 template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "RepeatString").setContent(v, v, repeatTimes))
+                VariableTracker.setSavedType(v, DFVarType.STRING)
                 return v
             } else {
                 val variable = VarItem.tempVar()
                 template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "RepeatString").setContent(variable, v, repeatTimes))
+                VariableTracker.setSavedType(variable, DFVarType.STRING)
                 return variable
             }
         }
@@ -276,6 +289,7 @@ object WordObject : DFLObject() {
                 } else " "
             } else " "
             template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "SplitString").setContent(variable, v, VarItem.str(splitter)))
+            VariableTracker.setSavedType(variable, DFVarType.LIST)
             return variable
         }
     }
@@ -283,6 +297,28 @@ object WordObject : DFLObject() {
     class ListAddFunction() : WordObjectConverter {
         override fun convert(v: VarItem, tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
             var cb = DFCodeBlock(DFCodeType.SET_VARIABLE, "AppendValue").setContent(v)
+            for ((index, argument) in tree.arguments.withIndex()) {
+                cb = cb.setContent(index + 1, TreeConverter.convertTree(argument, template, objects) as VarItem)
+            }
+            template.addCodeBlock(cb)
+            return v
+        }
+    }
+
+    class ListInsertFunction() : WordObjectConverter {
+        override fun convert(v: VarItem, tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+            var cb = DFCodeBlock(DFCodeType.SET_VARIABLE, "InsertListValue").setContent(v)
+            for ((index, argument) in tree.arguments.withIndex()) {
+                cb = cb.setContent(index + 1, TreeConverter.convertTree(argument, template, objects) as VarItem)
+            }
+            template.addCodeBlock(cb)
+            return v
+        }
+    }
+
+    class ListRemoveFunction() : WordObjectConverter {
+        override fun convert(v: VarItem, tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+            var cb = DFCodeBlock(DFCodeType.SET_VARIABLE, "RemoveListIndex").setContent(v)
             for ((index, argument) in tree.arguments.withIndex()) {
                 cb = cb.setContent(index + 1, TreeConverter.convertTree(argument, template, objects) as VarItem)
             }
@@ -302,6 +338,7 @@ object WordObject : DFLObject() {
                 }
             }
             template.addCodeBlock(cb)
+            VariableTracker.setSavedType(variable, DFVarType.STRING)
             return variable
         }
 
@@ -315,6 +352,9 @@ object WordObject : DFLObject() {
         functions["repeat"] = RepeatStringFunction()
         functions["split"] = StringSplitFunction()
         functions["add"] = ListAddFunction()
+        functions["insert"] = ListInsertFunction()
+        functions["removeat"] = ListRemoveFunction()
+        functions["removeAt"] = ListRemoveFunction()
         functions["join"] = ListJoinFunction()
         return super.accessFunc(name)
     }
