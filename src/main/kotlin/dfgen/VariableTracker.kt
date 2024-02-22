@@ -31,6 +31,11 @@ object VariableTracker {
         return saved[name]!!
     }
 
+    fun getSavedItem(name: String): VarItem {
+        if (!saved.containsKey(name)) return VarItem.num(0)
+        return saved[name]!!
+    }
+
     fun getSavedType(item: VarItem): DFVarType {
         if (item.value !is Map<*, *>) return item.type
         val name = (item.value as Map<*, *>)["name"] as? String ?: return item.type
@@ -42,6 +47,9 @@ object VariableTracker {
         val item = saved[name] ?: return DFVarType.ANY
 
         val type = saved[name]!!.type
+        println(name)
+        println(saved[name])
+        println(type)
         if (type == DFVarType.VARIABLE) {
             return getSavedType((item.value as Map<*, *>)["name"] as String)
         }

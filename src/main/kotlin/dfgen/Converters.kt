@@ -443,7 +443,7 @@ object CallConverter : AstConverter {
                     if (index >= parameters.keys.size) break
                     val parameter = parameters[parameters.keys.toTypedArray()[index]] ?: DFVarType.ANY
                     if (parameter == DFVarType.VARIABLE) {
-                        VariableTracker.setSavedType(arg, VariableTracker.getSavedType(parameters.keys.toTypedArray()[index]))
+                        VariableTracker.setSavedType(arg, VariableTracker.getSavedItem(parameters.keys.toTypedArray()[index]))
                     }
                 }
             }

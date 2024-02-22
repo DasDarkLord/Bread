@@ -1,5 +1,7 @@
-import "main2"
+func sayHi(name: string) {
+    player.send("Hello " + name + "!")
+}
 
 event join {
-    Ok("test")
+    sayHi("world")
 }

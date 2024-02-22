@@ -7,7 +7,6 @@ import dfk.item.VarItem
 import dfk.template.DFTemplate
 import parser.Ast
 import parser.TreeNode
-import java.time.temporal.ValueRange
 
 open class DFLObject {
     val fields: MutableMap<String, AstConverter> = mutableMapOf()
@@ -215,6 +214,19 @@ object DefaultObject : DFLObject() {
         }
     }
 
+    class CreateDictFunction() : AstConverter {
+        override fun convert(tree: TreeNode, template: DFTemplate, objects: MutableMap<String, DFLObject>): VarItem {
+            val keyList = TreeConverter.convertTree(tree.arguments[0], template, objects)
+            if (keyList !is VarItem) return VarItem.num(0)
+            val valList = TreeConverter.convertTree(tree.arguments[1], template, objects)
+            if (valList !is VarItem) return VarItem.num(0)
+
+            val variable = VarItem.tempVar()
+            template.addCodeBlock(DFCodeBlock(DFCodeType.SET_VARIABLE, "CreateDict").setContent(variable, keyList, valList))
+            return variable
+        }
+    }
+
     override fun accessFunc(name: String): AstConverter? {
         functions["str"] = StringFunction()
         functions["string"] = StringFunction()
@@ -229,6 +241,50 @@ object DefaultObject : DFLObject() {
         functions["listLen"] = ListLengthFunction()
         functions["listLength"] = ListLengthFunction()
         functions["listlength"] = ListLengthFunction()
+        functions["createdict"] = CreateDictFunction()
+        functions["createDict"] = CreateDictFunction()
+
+        val mathFunctions = buildMap {
+            put("sin", DFCodeBlock(DFCodeType.SET_VARIABLE, "Sine").setTag("Input", "Degrees"))
+            put("sinrad", DFCodeBlock(DFCodeType.SET_VARIABLE, "Sine").setTag("Input", "Radians"))
+            put("cos", DFCodeBlock(DFCodeType.SET_VARIABLE, "Cosine").setTag("Input", "Degrees"))
+            put("cosrad", DFCodeBlock(DFCodeType.SET_VARIABLE, "Cosine").setTag("Input", "Radians"))
+            put("tan", DFCodeBlock(DFCodeType.SET_VARIABLE, "Tangent").setTag("Input", "Degrees"))
+            put("tanrad", DFCodeBlock(DFCodeType.SET_VARIABLE, "Tangent").setTag("Input", "Radians"))
+            put("clamp", DFCodeBlock(DFCodeType.SET_VARIABLE, "Clamp"))
+            put("wrap", DFCodeBlock(DFCodeType.SET_VARIABLE, "Wrap"))
+            put("abs", DFCodeBlock(DFCodeType.SET_VARIABLE, "Absolute"))
+            put("log", DFCodeBlock(DFCodeType.SET_VARIABLE, "Logarithm"))
+            put("round", DFCodeBlock(DFCodeType.SET_VARIABLE, "RoundNumber"))
+            put("floor", DFCodeBlock(DFCodeType.SET_VARIABLE, "RoundNumber").setTag("Round Mode", "Floor"))
+            put("ceil", DFCodeBlock(DFCodeType.SET_VARIABLE, "RoundNumber").setTag("Round Mode", "Ceiling"))
+            put("root", DFCodeBlock(DFCodeType.SET_VARIABLE, "Root"))
+            put("min", DFCodeBlock(DFCodeType.SET_VARIABLE, "MinNumber"))
+            put("max", DFCodeBlock(DFCodeType.SET_VARIABLE, "MaxNumber"))
+            put("random", DFCodeBlock(DFCodeType.SET_VARIABLE, "RandomNumber"))
+        }
+        for (mathFunc in mathFunctions) {
+            val converter = object : AstConverter {
+                override fun convert(
+                    tree: TreeNode,
+                    template: DFTemplate,
+                    objects: MutableMap<String, DFLObject>,
+                ): Any {
+                    val variable = VarItem.tempVar()
+                    mathFunc.value.setContent(0, variable)
+                    var index = 1
+                    for (arg in tree.arguments) {
+                        val conv = TreeConverter.convertTree(arg, template, objects)
+                        if (conv !is VarItem) continue
+
+                        mathFunc.value.setContent(index, conv)
+                        index++
+                    }
+                    return variable
+                }
+            }
+            functions[mathFunc.key] = converter
+        }
 
         functions["wait"] = WaitFunction()
         return super.accessFunc(name)

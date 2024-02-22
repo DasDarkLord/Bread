@@ -33,7 +33,8 @@ class Lexer(val source: String) {
                     position++
 
                     var str = ""
-                    var isEscaped = false
+                    var isEscaped = position < source.length && source[position] == '\\'
+                    if (isEscaped) position++
                     while (position < source.length) {
                         if (source[position] == closingChar && !isEscaped) break
                         var letter = source[position]

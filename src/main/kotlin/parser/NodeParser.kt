@@ -100,7 +100,7 @@ class NodeParser(val tokens: MutableList<Token>) {
         if (tokens[index].type == TokenType.NUMBER) return parseToken()
         else if (tokens[index].type == TokenType.STRING) return parseToken()
         else if (tokens[index].type == TokenType.STYLED_TEXT) return parseToken()
-        else if (tokens[index].type == TokenType.TRUE || tokens[index].type == TokenType.FALSE) return parseTokens()
+        else if (tokens[index].type == TokenType.TRUE || tokens[index].type == TokenType.FALSE) return parseToken()
         else if (tokens[index].type == TokenType.WORD) return parseWord()
         else if (tokens[index].type == TokenType.LOCAL || tokens[index].type == TokenType.GAME || tokens[index].type == TokenType.SAVED) return parseVariableScope()
         else if (tokens[index].type == TokenType.START) return parseStart()
@@ -350,6 +350,7 @@ class NodeParser(val tokens: MutableList<Token>) {
     fun parseRepeat(): TreeNode {
         index++
         val type = parseWord()
+        println("Repeat at ${tokens[index]}")
         val expression = parseBlock()
 
         return TreeNode(
@@ -376,6 +377,7 @@ class NodeParser(val tokens: MutableList<Token>) {
             t.add(tokens[index])
             index++
         }
+        println("$index; ${tokens.size}")
         t.add(tokens[index])
         index++
         println("Left tokens ${tokens.subList(index, tokens.size)}")

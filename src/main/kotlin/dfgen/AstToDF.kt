@@ -56,6 +56,7 @@ fun convertAstToDF(events: List<Ast.Event>): List<DFTemplate> {
         if (name == "Command") {
             defaultObjects["event"] = EventObject()
                 .addField("arguments", VarItem.gameValue("Event Command Arguments", "Default"))
+                .addField("fullcommand", VarItem.gameValue("Event Command", "Default"))
         }
 
         val nodes = code.nodes
