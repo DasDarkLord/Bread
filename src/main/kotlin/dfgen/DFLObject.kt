@@ -271,15 +271,17 @@ object DefaultObject : DFLObject() {
                     objects: MutableMap<String, DFLObject>,
                 ): Any {
                     val variable = VarItem.tempVar()
-                    mathFunc.value.setContent(0, variable)
+                    var cb = DFCodeBlock(mathFunc.value)
+                    cb = cb.setContent(0, variable)
                     var index = 1
                     for (arg in tree.arguments) {
                         val conv = TreeConverter.convertTree(arg, template, objects)
                         if (conv !is VarItem) continue
 
-                        mathFunc.value.setContent(index, conv)
+                        cb = cb.setContent(index, conv)
                         index++
                     }
+                    template.addCodeBlock(cb)
                     return variable
                 }
             }

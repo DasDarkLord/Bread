@@ -9,6 +9,13 @@ class DFCodeBlock(var type: DFCodeType, var action: String = "", var target: Str
     var bracketOpening: Boolean = false
     var bracketRepeating: Boolean = false
 
+    constructor(dfCodeBlock: DFCodeBlock) : this(dfCodeBlock.type, dfCodeBlock.action, dfCodeBlock.target, dfCodeBlock.inverter) {
+        tags.putAll(dfCodeBlock.tags)
+        contents.putAll(dfCodeBlock.contents)
+        bracketRepeating = dfCodeBlock.bracketOpening
+        bracketRepeating = dfCodeBlock.bracketRepeating
+    }
+
     fun setTag(name: String, value: String): DFCodeBlock {
         tags[name] = value
         return this
